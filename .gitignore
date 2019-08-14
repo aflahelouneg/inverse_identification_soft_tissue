@@ -1,0 +1,13 @@
+
+.*
+*.pyc
+
+__pycache__
+
+docs/
+notes/
+results/
+temp/
+test/
+
+!.gitignore
