@@ -1,9 +1,9 @@
 
-I installed fenics and other required packages using conda like this:
-$ conda create -c conda-forge -n <name_of_environment> fenics=2018 scipy sympy numpy matplotlib
+Install fenics and other required packages into a conda environment; for example,
+$ conda create -c conda-forge -n <name_of_environment> fenics=2018 scipy sympy numpy matplotlib ipython
 
-After you activate the environment, e.g.
+After you activate your environment
 $ source activate <name_of_environment>
 
-You should be able to run an example problem as a module from the main directory like this:
-$ python -m examples.basic_example_1
+Run an example problem as a module; for example, run it from an ipython interpreter like this
+$ run -m examples.basic_example_1
