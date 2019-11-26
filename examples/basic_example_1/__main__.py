@@ -235,7 +235,7 @@ T_obs = PN # NOTE: Generally a sequence of vector-valued tractions
 # Displacement misfit cost
 J_u = sum((u_obs[i]-u_msr[i])**2*ds_msr_u for i in using_subdims_u_msr)
 
-# Reaction force constraint
+# Reaction force constraints
 C = [(T_obs[i]-T_msr[i])*ds_msr_T for i in using_subdims_T_msr]
 constraint_multipliers = [Constant(1e-9) for _ in using_subdims_T_msr]
 J_c = sum(mult_i*C_i for mult_i, C_i in zip(constraint_multipliers, C))

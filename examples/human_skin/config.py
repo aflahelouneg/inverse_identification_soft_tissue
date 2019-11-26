@@ -13,7 +13,7 @@ parameters_inverse_solver = {
     'solver_method': 'newton', # 'newton' or 'gradient'
     'sensitivity_method': 'adjoint', # 'adjoint' or 'direct'
     'maximum_iterations': 50,
-    'maximum_divergences': 0,
+    'maximum_divergences': 3,
     'absolute_tolerance': 1e-8,
     'relative_tolerance': 1e-6,
     'maximum_relative_change': None,

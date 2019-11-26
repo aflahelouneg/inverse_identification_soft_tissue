@@ -64,7 +64,7 @@ MATERIAL_MODEL_NAMES = ["NeoHookean"]
 # MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
 # MATERIAL_MODEL_NAMES = ["Yeoh", "NeoHookean"]
 
-MESH_NAME_TAG = "2" # "1", "2", "3"
+MESH_NAME_TAG = "2" # "1", "2", "3", "4", "5"
 
 MAXIMUM_OBSERVATIONS = 10
 # MAXIMUM_OBSERVATIONS = 3
