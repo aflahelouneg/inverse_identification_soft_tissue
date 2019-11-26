@@ -8,7 +8,7 @@ import scipy.optimize
 import scipy.interpolate
 import matplotlib.pyplot as plt
 
-from problems.utility import apply_mean_filter
+from examples.utility import apply_mean_filter
 
 
 CURRENT_DIRECTORY = os.path.dirname(os.path.relpath(__file__))
