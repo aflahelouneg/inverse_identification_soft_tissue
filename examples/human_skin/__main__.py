@@ -1,9 +1,21 @@
 '''
-Keloid skin extension problem.
+Human skin hyper-elastic model parameter identification.
 
 The fixed pad (right pad) is fixed at zero displacement; the moving pad (left
 pad) is subjected to incremental displacement. The reaction force is measured
 at the moving pad.
+
+The objective is to fit a hyper-elastic material model in terms of the model
+parameters so that the model observations (displacement field and reaction force)
+and the expeimental measurements (displacement field and reaction force) are as
+close as possible.
+
+In post analysis, the sensitivity of the hyper-elastic model with respect
+to the experimental measurements is assessed. This gives a measure of the
+sensitivity and generates a field indicated with the model is most sensitive
+to the measured data. In additions, a sensitivity field is generated to show
+where (ideally) the measurements should have been take in order to for the fit
+to be more accurate.
 
 '''
 
@@ -28,16 +40,16 @@ from dolfin import assemble
 import invsolve
 import material
 
-import problems.plotting
-import problems.utility
+import examples.plotting
+import examples.utility
 
 from . import config
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-reload_module = problems.utility.reload_module
-SimpleTimer = problems.utility.SimpleTimer
+reload_module = examples.utility.reload_module
+SimpleTimer = examples.utility.SimpleTimer
 
 PROBLEM_DIRECTORY = os.path.dirname(os.path.relpath(__file__))
 PROBLEM_NAME = os.path.basename(os.path.split(__file__)[0])
@@ -45,14 +57,14 @@ PROBLEM_NAME = os.path.basename(os.path.split(__file__)[0])
 
 ### Problem parameters
 
-# PROBLEM_SUBCASE = "monolithic"
-# MATERIAL_MODEL_NAMES = ["NeoHookean"]
+PROBLEM_SUBCASE = "monolithic"
+MATERIAL_MODEL_NAMES = ["NeoHookean"]
 
-PROBLEM_SUBCASE = "bimaterial"
-MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
+# PROBLEM_SUBCASE = "bimaterial"
+# MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
 # MATERIAL_MODEL_NAMES = ["Yeoh", "NeoHookean"]
 
-MESH_NAME_TAG = "1" # "1", "2", "3"
+MESH_NAME_TAG = "2" # "1", "2", "3"
 
 MAXIMUM_OBSERVATIONS = 10
 # MAXIMUM_OBSERVATIONS = 3
@@ -75,15 +87,15 @@ COMPUTE_STRESS_FIELD = True
 OPTIMIZE_FOREACH_OBSERVATION_TIME = False
 OPTIMIZE_FORALL_OBSERVATION_TIMES = True
 
-TEST_SENSITIVITY = False
-TEST_SENSITIVITY_PROJECTION = False
+TEST_SENSITIVITY = True
+TEST_SENSITIVITY_PROJECTION = True
 
 ELEMENT_DEGREE = 1
 MESHLESS_DEGREE = 2 # (3 is ill-conditioned)
 MESHLESS_WEIGHT = "center" # "center", "uniform"
 
-PLOT_RESULTS = False
-SAVE_RESULTS = False
+PLOT_RESULTS = True
+SAVE_RESULTS = True
 
 SAVE_FIGURE_EXTENSIONS = ('.png', '.svg') # '.pdf'
 
@@ -283,10 +295,10 @@ if MAXIMUM_DISPLACEMENT is not None:
 
 model_observation_start = 1
 
-model_observation_times = problems.utility.linspace_range(
+model_observation_times = examples.utility.linspace_range(
     first=model_observation_start, last=num_measurements-1,
     count=min(num_measurements, MAXIMUM_OBSERVATIONS),
-    start_from="back")
+    subrange="back") # "back" means `last` is inclusive
 
 
 ### Mark the DIC subdomain
@@ -303,7 +315,7 @@ def compute_measurement_markers_dic():
     p1 += tol
 
     measurement_markers_dic, id_measruement_markers_dic = \
-        problems.utility.mark_rectangular_subdomain(p0, p1, mesh)
+        examples.utility.mark_rectangular_subdomain(p0, p1, mesh)
 
     id_measruement_markers_dic = (id_measruement_markers_dic,)
 
@@ -592,10 +604,10 @@ if not all(isinstance(m, dict) for m in material_parameters):
 model_parameters = [material_parameters,]
 model_parameters.append(auxiliary_parameters)
 
-material_parameter_names = problems.utility \
+material_parameter_names = examples.utility \
     .list_model_parameter_names(material_parameters, Constant)
 
-auxiliary_parameter_names = problems.utility \
+auxiliary_parameter_names = examples.utility \
     .list_model_parameter_names(auxiliary_parameters, Constant)
 
 model_parameter_names = material_parameter_names + auxiliary_parameter_names
@@ -928,7 +940,7 @@ if COMPUTE_SENSITIVITIES:
 
 ### Test model parameter sensitivities
 
-def test_model_parameter_sensitivities(h=1e-3):
+def test_model_parameter_sensitivities(h=1e-4):
     '''Finite difference test for verifying model parameter sensitivities.
 
     Important
@@ -959,7 +971,8 @@ def test_model_parameter_sensitivities(h=1e-3):
     test_results.append(inverse_solver.test_model_parameter_sensitivity_dmdu_msr(h))
 
     for res_predicted, res_expected in test_results:
-        test_successes.append(np.allclose(res_predicted, res_expected, atol=1e-6, rtol=1e-2))
+        test_successes.append(np.allclose(res_predicted, res_expected,
+                                          atol=1e-6, rtol=1e-2))
 
     return test_successes, test_results
 
@@ -968,7 +981,7 @@ if TEST_SENSITIVITY:
     try:
         test_successes, test_results = test_model_parameter_sensitivities()
     except:
-        test_successes, test_results = False, None
+        test_successes, test_results = (False,False,False), None
 
     if not all(test_successes):
         logger.error('Failed model parameter sensitivity test(s).')
@@ -1180,7 +1193,7 @@ if COMPUTE_SENSITIVITIES:
         ### Normalize the sensitivity functions since the magnitudes do not matter
 
         assert V==V_obs, "Can not handle mixed function spaces. [TODO]"
-        dofmaps = problems.utility.list_subspace_dofs(V_obs)
+        dofmaps = examples.utility.list_subspace_dofs(V_obs)
 
         for fn_i in dudm_dm_principal_at_t_as_vector_field:
 
@@ -1249,7 +1262,7 @@ def compute_stress_field_fast(stress_measure_name='pk2'):
 
     '''
 
-    material_parameters_as_expressions = problems.utility \
+    material_parameters_as_expressions = examples.utility \
         .convert_material_parameters_in_subdomains_to_single_expressions(
             material_parameters, id_subdomains_material, domain_markers)
 
@@ -1295,7 +1308,7 @@ def plot_results():
     fig_handle_and_name_pairs = []
 
     fig_handle_and_name_pairs.append(
-        problems.plotting.plot_problem_domain(
+        examples.plotting.plot_problem_domain(
             mesh=None, domain_markers=domain_markers,
             figname="Material Subdomains with Superposed Displacement Measurement Points"))
 
@@ -1305,7 +1318,7 @@ def plot_results():
     plt.legend([handle_scatter_plot], ["DIC data"])
 
     fig_handle_and_name_pairs.append(
-        problems.plotting.plot_problem_domain(
+        examples.plotting.plot_problem_domain(
             mesh=None, domain_markers=measurement_markers_dic,
             figname="Displacement Measurement Subdomain"))
 
@@ -1317,7 +1330,7 @@ def plot_results():
     if OPTIMIZE_FOREACH_OBSERVATION_TIME:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_parameters_foreach(
+            examples.plotting.plot_model_parameters_foreach(
                 model_parameters_foreach,
                 model_parameter_names,
                 model_observation_times,
@@ -1326,7 +1339,7 @@ def plot_results():
     if OPTIMIZE_FORALL_OBSERVATION_TIMES:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_parameters_forall(
+            examples.plotting.plot_model_parameters_forall(
                 model_parameters_forall,
                 model_parameter_names,
                 figname="Fitted Model Parameters for all Observation Times"))
@@ -1334,14 +1347,14 @@ def plot_results():
     if COMPUTE_FINAL_COST:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_cost(
+            examples.plotting.plot_model_cost(
                 cost_values_final,
                 cost_values_initial,
                 model_observation_times,
                 figname="Model Cost"))
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_cost_gradients(
+            examples.plotting.plot_cost_gradients(
                 cost_gradients_final,
                 model_parameter_names,
                 model_observation_times,
@@ -1350,14 +1363,14 @@ def plot_results():
     if COMPUTE_MISFIT_ERROR:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_observation_misfit(
+            examples.plotting.plot_observation_misfit(
                 misfit_reaction_forces[MEASUREMENT_INDEX],
                 model_observation_times,
                 figname="Reaction Force Misfit Error",
                 ylabel="Reaction force misfit error, $||f_{obs}-f_{msr}||/||f_{msr}||$"))
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_observation_misfit(
+            examples.plotting.plot_observation_misfit(
                 misfit_displacements[MEASUREMENT_INDEX],
                 model_observation_times,
                 figname="Displacement Field Misfit Error",
@@ -1366,7 +1379,7 @@ def plot_results():
     if COMPUTE_REACTION_FORCE:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_reaction_force_vs_displacement(
+            examples.plotting.plot_reaction_force_vs_displacement(
                 np.array(reaction_forces_observed[MEASUREMENT_INDEX])[:,0],
                 np.array(reaction_forces_measured[MEASUREMENT_INDEX])[:,0],
                 np.array(reaction_displacements[MEASUREMENT_INDEX])[:,0],
@@ -1375,7 +1388,7 @@ def plot_results():
     if COMPUTE_SENSITIVITIES:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_parameter_sensitivities(
+            examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdu_msr[MEASUREMENT_INDEX],
                 model_parameter_names,
                 model_observation_times,
@@ -1385,7 +1398,7 @@ def plot_results():
                     "Standard Deviation in Displacement Measurements"))
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_parameter_sensitivities(
+            examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdf_msr[MEASUREMENT_INDEX],
                 model_parameter_names,
                 model_observation_times,
@@ -1395,7 +1408,7 @@ def plot_results():
                     "Standard Deviation in Reaction Force Measurements")))
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_parameter_sensitivities(
+            examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdu_msr_relative[MEASUREMENT_INDEX],
                 model_parameter_names,
                 model_observation_times,
@@ -1405,7 +1418,7 @@ def plot_results():
                     "Standard Deviation in Displacement Measurements"))
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_model_parameter_sensitivities(
+            examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdf_msr_relative[MEASUREMENT_INDEX],
                 model_parameter_names,
                 model_observation_times,
@@ -1417,7 +1430,7 @@ def plot_results():
         for i, fn_i in enumerate(dmdu_msr_at_t_as_scalar_field[MEASUREMENT_INDEX]):
 
             fig_handle_and_name_pairs.append(
-                problems.plotting.plot_scalar_field(fn_i,
+                examples.plotting.plot_scalar_field(fn_i,
                     figname=f'Sensitivity of Model Parameter ({i})',
                     title=('Sensitivity of Model Parameter '
                         f'"{model_parameter_names[i]}"\n'
@@ -1426,7 +1439,7 @@ def plot_results():
         for i, fn_i in enumerate(dmdu_at_t_as_scalar_field):
 
             fig_handle_and_name_pairs.append(
-                problems.plotting.plot_scalar_field(fn_i,
+                examples.plotting.plot_scalar_field(fn_i,
                     figname=f'Estimated Global Sensitivity ({i})',
                     title=('Estimated Global Sensitivity\n'
                         f'of Model Parameter "{model_parameter_names[i]}"')))
@@ -1435,7 +1448,7 @@ def plot_results():
             i_prc = i + 1 # Principal values are usually enumerated from `1`
 
             fig_handle_and_name_pairs.append(
-                problems.plotting.plot_scalar_field(fn_i,
+                examples.plotting.plot_scalar_field(fn_i,
                     figname=f'Principal Model Cost Sensitivity ({i})',
                     title=(f'Principal Model Cost Sensitivity ({i_prc})\n'
                         'with Respect to Displacement Measurements')))
@@ -1443,7 +1456,7 @@ def plot_results():
     if COMPUTE_MISFIT_FIELD:
 
         fig_handle_and_name_pairs.append(
-            problems.plotting.plot_scalar_field(
+            examples.plotting.plot_scalar_field(
                 u_mis_at_t_as_scalar_field,
                 figname='Displacement Field Misfit',
                 title='Misfit Between Model and Measured Displacements'))
@@ -1452,14 +1465,14 @@ def plot_results():
 
         if stress_field_pk1_at_t is not None:
             fig_handle_and_name_pairs.append(
-                problems.plotting.plot_scalar_field(
+                examples.plotting.plot_scalar_field(
                     dolfin.project(stress_field_pk1_at_t**2, S),
                     figname='Stress Field Magnitude (PK1)',
                     title='Stress Field Magnitude (PK1)'))
 
         if stress_field_pk2_at_t is not None:
             fig_handle_and_name_pairs.append(
-                problems.plotting.plot_scalar_field(
+                examples.plotting.plot_scalar_field(
                     dolfin.project(stress_field_pk2_at_t**2, S),
                     figname='Stress Field Magnitude (PK2)',
                     title='Stress Field Magnitude (PK2)'))
@@ -1501,9 +1514,9 @@ def save_results(fig_handle_and_name_pairs=None):
     if not os.path.isdir(outdir_figures): os.makedirs(outdir_figures)
     if not os.path.isdir(outdir_functions): os.makedirs(outdir_functions)
 
-    problems.utility.remove_outfiles(outdir_arrays, SAFE_TO_REMOVE_FILE_TYPES)
-    problems.utility.remove_outfiles(outdir_figures, SAFE_TO_REMOVE_FILE_TYPES)
-    problems.utility.remove_outfiles(outdir_functions, SAFE_TO_REMOVE_FILE_TYPES)
+    examples.utility.remove_outfiles(outdir_arrays, SAFE_TO_REMOVE_FILE_TYPES)
+    examples.utility.remove_outfiles(outdir_figures, SAFE_TO_REMOVE_FILE_TYPES)
+    examples.utility.remove_outfiles(outdir_functions, SAFE_TO_REMOVE_FILE_TYPES)
 
     for handle_i, name_i in zip(fig_handles, fig_names):
         subdir_i = os.path.join(outdir_figures, name_i)

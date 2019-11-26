@@ -2404,23 +2404,23 @@ class InverseSolver(InverseSolverBasic):
         GENERATE_PERTURBATION_DIRECTION = np.random.rand
 
         if not self._property['is_converged']:
-            logger.warning('Results may be inaccurate as '
+            logger.warning('Results may be inaccurate because '
                            'the solver is not converged.')
 
-        if self.parameters_inverse_solver['absolute_tolerance'] > 1e-9:
-            logger.warning('Results may be inaccurate as the solver '
+        if self.parameters_inverse_solver['absolute_tolerance'] > 1e-6:
+            logger.warning('Results may be inaccurate because the solver '
                            'convergence parameter "absolute_tolerance" '
-                           'may not be sufficiently small.')
+                           'may be insufficiently small.')
 
-        if self.parameters_inverse_solver['relative_tolerance'] > 1e-9:
-            logger.warning('Results may be inaccurate as the solver '
+        if self.parameters_inverse_solver['relative_tolerance'] > 1e-6:
+            logger.warning('Results may be inaccurate because the solver '
                            'convergence parameter "relative_tolerance" '
-                           'may not be sufficiently small.')
+                           'may be insufficiently small.')
 
         if self.parameters_inverse_solver['maximum_relative_change']:
-            logger.warning('Results may be inaccurate as the solver '
-                           'parameter "maximum_relative_change" is '
-                           'prescribed.')
+            logger.warning('Results may be inaccurate because the solver '
+                           'parameter "maximum_relative_change" has '
+                           'been prescribed.')
 
         vs = v if isinstance(v, SEQUENCE_TYPES) else (v,)
 

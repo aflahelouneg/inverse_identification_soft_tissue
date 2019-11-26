@@ -316,20 +316,26 @@ def meshgrid_inside_mesh2d(mesh, step, xlim=(-np.inf,np.inf), ylim=(-np.inf, np.
     return np.ascontiguousarray(grid[mask])
 
 
-def linspace_range(first, last, count, start_from="front"):
-    '''Uniformly space the range starting either from the front or the back.'''
+def linspace_range(first, last, count, subrange="front"):
+    '''Uniformly spaced values.
 
-    if not isinstance(start_from, str) \
-        or start_from not in ("front", "back"):
-        raise ValueError('Parameter `start_from`.')
+    `subrange="front"` means `count` values from `first` (always inclusive) to
+    `last` (possibly exclusive); `subrange="back"` means `count` values from
+    `first` (possibly exclusive) to `last` (always inclusive).
+
+    '''
+
+    if not isinstance(subrange, str) \
+        or subrange not in ("front", "back"):
+        raise ValueError('Parameter `subrange`.')
 
     if count == 0:
         return []
 
     if count == 1:
-        if start_from == "front":
+        if subrange == "front":
             return [first,]
-        else: # start_from == "back"
+        else: # subrange == "back"
             return [last,]
 
     if count < 2:
@@ -342,13 +348,13 @@ def linspace_range(first, last, count, start_from="front"):
 
     dx = int((len(x)-1)/(count-1))
 
-    if start_from == "front":
+    if subrange == "front":
 
         x = x[::dx]
         if len(x) > count:
             x = x[:count]
 
-    else: # start_from == "back"
+    else: # subrange == "back"
 
         x = x[::-1][::dx]
         if len(x) > count:
