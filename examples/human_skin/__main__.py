@@ -600,6 +600,10 @@ if len(material_parameters) != len(id_subdomains_material):
 if not all(isinstance(m, dict) for m in material_parameters):
     raise TypeError('`material_parameters` must contain `dict`s.')
 
+if len(material_classes) != len(material_parameters):
+    raise RuntimeError('Number of material models and number of '
+                       'materials parameter `dist`s must be the same')
+
 
 model_parameters = [material_parameters,]
 model_parameters.append(auxiliary_parameters)
