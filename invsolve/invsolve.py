@@ -867,6 +867,9 @@ class InverseSolverBasic:
 
         for num_iterations in range(1, max_iterations+1):
 
+            if logging_level <= logging.INFO:
+                print(f'\n*** Iteration #{num_iterations:d} ***\n')
+
             dm = compute_dm(DJDm, D2JDm2)
             dm = constrain_dm(dm, m)
 
@@ -885,9 +888,7 @@ class InverseSolverBasic:
             is_converging = norm_DJDm < norm_DJDm_old
 
             if logging_level <= logging.INFO:
-
-                print(
-                    f'\n*** Iteration #{num_iterations:d} ***\n\n'
+                print('\n'
                     f'  norm(DJDm_old)     :{norm_DJDm_old: g}\n'
                     f'  norm(DJDm)         :{norm_DJDm: g}\n\n'
                     f'  DJDm[dm]           :{DJDm_dm: g}\n'
