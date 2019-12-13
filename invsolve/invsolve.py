@@ -667,9 +667,6 @@ class InverseSolverBasic:
             def compute_dm(DJDm, D2JDm2):
                 try:
                     dm = self._compute_dm_method_newton(DJDm, D2JDm2)
-                    if D2JDm2.dot(dm).dot(dm) < 0.0:
-                        logger.warning('`D2JDm2[dm]` is not positive')
-
                 except linalg.LinAlgError:
                     logger.warning('Could not compute `dm` using '
                         'Newton method; trying gradient descent.')

@@ -24,6 +24,7 @@ from .invsolve import InverseSolver
 from .config import logger
 
 SEQUENCE_TYPES = (tuple, list)
+EPS = 1e-12
 
 
 def cost_displacement_misfit(u_obs, u_msr, dx_msr, subdims):
@@ -147,6 +148,46 @@ def constraints_reaction_force_noisy(T_obs, T_msr, ds_msr, subdims=None):
     C = [sum(C[j][i] for j in range(n_msr)) for i in subdims]
 
     return C, dT_msr
+
+
+def constraint_activation_weights(num, start, stop):
+    '''Piecewise constant activation weights for subinterval as a list of
+    `dolfin.Expression`s. The weights are set by calling the setter function
+    with the observation `index` between `start` and `stop` (inclusive).
+
+    Parameters
+    ----------
+    num : integer (>0)
+        Number of subintervals.
+    start : real
+        Begining of the interval.
+    stop : real
+        End of the interval (inclusive).
+
+    Returns
+    -------
+    weights : dolfin.Expression (scaler-valued)
+        Weights that activate a subinterval depending on index.
+    setter : function(index)
+        Function for setting the `weights` values.
+
+    '''
+
+    if start >= stop:
+        raise ValueError("Require `start < stop`")
+
+    weights = tuple(dolfin.Constant(1.0) for _ in range(num))
+    subintervals = np.linspace(start, stop, num+1, dtype=float).tolist()
+    subintervals[-1] += (stop - start) * EPS # Add slack
+
+    firsts = subintervals
+    lasts = subintervals[1:]
+
+    def setter(index):
+        for weight, first, last in zip(weights, firsts, lasts):
+            weight.assign(float(index >= first and index < last))
+
+    return weights, setter, subintervals
 
 
 def noramalizing_weight(form_denominator):
