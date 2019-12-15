@@ -3,12 +3,12 @@
 *.pyc
 
 __pycache__
+/test_*.py
 
+ar/
 docs/
 notes/
 results/
 results (backup)/
-temp/
-test/
 
 !.gitignore
