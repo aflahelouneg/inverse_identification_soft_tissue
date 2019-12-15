@@ -62,9 +62,9 @@ MATERIAL_MODEL_NAMES = ["NeoHookean"]
 
 # PROBLEM_SUBCASE = "bimaterial"
 # MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
-# MATERIAL_MODEL_NAMES = ["Yeoh", "NeoHookean"]
+# NOTE: Need to assign `NUMBER_OF_MODEL_PARAMETERS`
 
-MESH_NAME_TAG = "2" # "1", "2", "3", "4", "5"
+MESH_NAME_TAG = "3" # "1", "2", "3", "4", "5"
 
 MAXIMUM_OBSERVATIONS = 10
 # MAXIMUM_OBSERVATIONS = 3
@@ -82,13 +82,13 @@ COMPUTE_SENSITIVITIES = True
 COMPUTE_REACTION_FORCE = True
 COMPUTE_MISFIT_ERROR = True
 COMPUTE_MISFIT_FIELD = True
-COMPUTE_STRESS_FIELD = True
+COMPUTE_STRESS_FIELD = False
 
 OPTIMIZE_FOREACH_OBSERVATION_TIME = False
 OPTIMIZE_FORALL_OBSERVATION_TIMES = True
 
-TEST_SENSITIVITY = True
-TEST_SENSITIVITY_PROJECTION = True
+TEST_SENSITIVITY = False
+TEST_SENSITIVITY_PROJECTION = False
 
 ELEMENT_DEGREE = 1
 MESHLESS_DEGREE = 2 # (3 is ill-conditioned)
@@ -411,9 +411,8 @@ if PROBLEM_SUBCASE == "monolithic":
 
         if FIXED_EXTERNAL_BOUNDARY:
 
-            if   MESH_NAME_TAG == "1": model_parameter_init = (2.963e-02, 1.598e-01,  5.214e-08) # GUESS
-            else:
-                raise NotImplementedError
+            if MESH_NAME_TAG == "1": model_parameter_init = (2.963e-02, 1.598e-01,  5.214e-08) # GUESS
+            else: raise NotImplementedError
 
         else:
 
@@ -422,8 +421,7 @@ if PROBLEM_SUBCASE == "monolithic":
             elif MESH_NAME_TAG == "3": model_parameter_init = (2.838323203496151068e-02, 1.566668537617276202e-01,  5.060665448534135552e-08)
             elif MESH_NAME_TAG == "4": model_parameter_init = (2.803433650745537631e-02, 1.466638526492443639e-01, -1.960886460213584679e-08)
             elif MESH_NAME_TAG == "5": model_parameter_init = (2.679497761354525734e-02, 1.360910810533804971e-01,  5.198569875346106152e-08)
-            else:
-                raise NotImplementedError
+            else: raise NotImplementedError
 
         material_parameters.append({
             'E':  Constant(model_parameter_init[0]),
@@ -433,9 +431,27 @@ if PROBLEM_SUBCASE == "monolithic":
         auxiliary_parameters['lagrange_multiplier'] = \
             Constant(model_parameter_init[-1])
 
+    elif MATERIAL_MODEL_NAMES[0] == "Yeoh":
+
+        material_classes.append(material.Yeoh)
+
+        if not FIXED_EXTERNAL_BOUNDARY:
+
+            if MESH_NAME_TAG: model_parameter_init = (1.00e-02, 2.00e-2, 1.00e-12)
+            else: raise NotImplementedError
+
+            material_parameters.append({
+                f'C{i}': Constant(value) for i, value in enumerate(model_parameter_init[:-1], start=1)
+                })
+
+            auxiliary_parameters['lagrange_multiplier'] = \
+                Constant(model_parameter_init[-1])
+
+        else:
+            raise NotImplementedError(f'`FIXED_EXTERNAL_BOUNDARY`: {FIXED_EXTERNAL_BOUNDARY}')
+
     else:
         raise NotImplementedError(f'`MATERIAL_MODEL_NAMES`: {MATERIAL_MODEL_NAMES}.')
-
 
 elif PROBLEM_SUBCASE == "bimaterial":
 
@@ -445,21 +461,20 @@ elif PROBLEM_SUBCASE == "bimaterial":
         material_classes.append(material.NeoHookean)
         material_classes.append(material.NeoHookean)
 
+        NUMBER_OF_MODEL_PARAMETERS = 5  # Assign an appropriate value: `3` or `5`
+
         if not FIXED_EXTERNAL_BOUNDARY:
 
-            number_of_model_parameters = 3
-
-            if number_of_model_parameters == 3:
+            if NUMBER_OF_MODEL_PARAMETERS == 3:
 
                 if   MESH_NAME_TAG == "1": model_parameter_init = (1.090813107096536699e-01, 4.062347391656254136e-01, 9.221195915302710534e-10)
                 elif MESH_NAME_TAG == "2": model_parameter_init = (9.975743862934521866e-02, 4.166089662522097226e-01, 1.267970122177255419e-14)
                 elif MESH_NAME_TAG == "3": model_parameter_init = (1.094745007470644405e-01, 3.893025082154862315e-01, 1.546436898099080772e-09)
                 elif MESH_NAME_TAG == "4": model_parameter_init = (1.062777335344494423e-01, 3.706073657389226117e-01, 1.565697153212684302e-09)
                 elif MESH_NAME_TAG == "5": model_parameter_init = (1.082390169459683943e-01, 3.505140390616134916e-01, 1.134785448024687904e-13)
-                else:
-                    raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
+                else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
 
-            elif number_of_model_parameters == 5:
+            elif NUMBER_OF_MODEL_PARAMETERS == 5:
 
                 if MESH_NAME_TAG == "1":
                     model_parameter_init = (
@@ -505,7 +520,7 @@ elif PROBLEM_SUBCASE == "bimaterial":
                     raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
 
             else:
-                raise NotImplementedError('`number_of_model_parameters`: {number_of_model_parameters}')
+                raise NotImplementedError('`NUMBER_OF_MODEL_PARAMETERS`: {NUMBER_OF_MODEL_PARAMETERS}')
 
             material_parameters.append({
                 'E':  Constant(model_parameter_init[0]),
@@ -547,22 +562,9 @@ elif PROBLEM_SUBCASE == "bimaterial":
             if MESH_NAME_TAG: #  == "2"
 
                 model_parameter_init = (
-                    1.740154e-03, # C1
-                    2.451183e+02, # lagrange_multiplier
-                    )
-
-                # model_parameter_init = (
-                #     2.900731108327908939e-02, # C1
-                #     2.563200442527592937e+00, # C2
-                #     2.235629515274709789e+01, # lagrange_multiplier
-                #     )
-
-                # model_parameter_init = (
-                #     2.900731108327908939e-02, # C1
-                #     2.563200442527592937e+00, # C2
-                #     0.0, # C3
-                #     2.235629515274709789e+01, # lagrange_multiplier
-                #     )
+                    1.00e-01, # C1
+                    1.00e-12, # lagrange_multiplier
+                    ) # Keloid skin
 
             else:
                 raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
@@ -572,13 +574,13 @@ elif PROBLEM_SUBCASE == "bimaterial":
                     enumerate(model_parameter_init[:-1], start=1)
                 }) # Keloid skin
 
+            material_parameters.append({
+                'E':  1.0e-04,
+                'nu': 0.1,
+                }) # Healthy skin
+
             auxiliary_parameters['lagrange_multiplier'] = \
                 Constant(model_parameter_init[-1])
-
-            material_parameters.append({
-                'E':  2.679497761354525734e-02,
-                'nu': 1.360910810533804971e-01,
-                }) # Healthy skin
 
         else:
             raise NotImplementedError(f'`FIXED_EXTERNAL_BOUNDARY`: {FIXED_EXTERNAL_BOUNDARY}')
@@ -603,18 +605,6 @@ if not all(isinstance(m, dict) for m in material_parameters):
 if len(material_classes) != len(material_parameters):
     raise RuntimeError('Number of material models and number of '
                        'materials parameter `dist`s must be the same')
-
-
-model_parameters = [material_parameters,]
-model_parameters.append(auxiliary_parameters)
-
-material_parameter_names = examples.utility \
-    .list_model_parameter_names(material_parameters, Constant)
-
-auxiliary_parameter_names = examples.utility \
-    .list_model_parameter_names(auxiliary_parameters, Constant)
-
-model_parameter_names = material_parameter_names + auxiliary_parameter_names
 
 
 ### Regularization of model parameters (OPTIONAL)
@@ -692,12 +682,6 @@ u_msr  = invsolve.measure.measurement_expression(measurement_u_dic_prj)
 uD_msr = invsolve.measure.measurement_expression(measurement_u_bnd)
 T_msr  = invsolve.measure.measurement_expression(measurement_T_bnd)
 
-def measurement_setter(i):
-    '''Set measurements at index.'''
-    T_msr.at_index(i)
-    u_msr.at_index(i)
-    uD_msr.at_index(i)
-
 
 ### Dirichlet boundary conditions
 
@@ -734,10 +718,49 @@ J, du_msr = invsolve.functions.cost_displacement_misfit_noisy(
 C, dT_msr = invsolve.functions.constraints_reaction_force_noisy(
     T_obs, T_msr, ds_msr, subdims=using_subdims_T_msr)
 
-J += auxiliary_parameters['lagrange_multiplier'] * C[0]
+# J += auxiliary_parameters['lagrange_multiplier'] * C[0]
+
+
+NUM_FORCE_CONSTRAINTS = 1
+
+constraint_activation_weights, set_constraint_weights_for_measurement, \
+constraint_activation_intervals = invsolve.functions.constraint_activation_weights(
+    NUM_FORCE_CONSTRAINTS, model_observation_times[0], model_observation_times[-1])
+
+constraint_multipliers = [auxiliary_parameters['lagrange_multiplier'],]
+
+for i in range(1, len(constraint_activation_weights)):
+    constraint_multipliers.append(Constant(float(constraint_multipliers[0])*(-1)**i))
+    auxiliary_parameters[f'lagrange_multiplier_{i}'] = constraint_multipliers[-1]
+
+J += sum(aw_i * cm_i * C[0] for aw_i, cm_i in zip(
+    constraint_activation_weights, constraint_multipliers))
 
 if material_parameter_penalty is not None:
     J += material_parameter_penalty
+
+def measurement_setter(i):
+    '''Set measurements at index.'''
+
+    T_msr.at_index(i)
+    u_msr.at_index(i)
+    uD_msr.at_index(i)
+
+    set_constraint_weights_for_measurement(i)
+
+
+### Model parameters
+
+model_parameters = [material_parameters,]
+model_parameters.append(auxiliary_parameters)
+
+material_parameter_names = examples.utility \
+    .list_model_parameter_names(material_parameters, Constant)
+
+auxiliary_parameter_names = examples.utility \
+    .list_model_parameter_names(auxiliary_parameters, Constant)
+
+model_parameter_names = material_parameter_names + auxiliary_parameter_names
 
 
 ### Inverse solver
@@ -944,7 +967,7 @@ if COMPUTE_SENSITIVITIES:
 
 ### Test model parameter sensitivities
 
-def test_model_parameter_sensitivities(h=1e-4):
+def test_model_parameter_sensitivities(h=1e-6):
     '''Finite difference test for verifying model parameter sensitivities.
 
     Important
@@ -990,7 +1013,7 @@ if TEST_SENSITIVITY:
     if not all(test_successes):
         logger.error('Failed model parameter sensitivity test(s).')
         if test_results is not None:
-            print('\"test_results:\"')
+            print('test_results:')
             print(test_results)
 
 
