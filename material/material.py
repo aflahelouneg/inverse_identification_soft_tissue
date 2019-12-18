@@ -28,8 +28,8 @@ class DeformationMeasures:
     def __init__(self, u):
         '''Deformation measures.'''
 
-        if not isinstance(u, Function):
-            raise TypeError('Parameter `u` must be a `dolfin.Function`.')
+        # if not isinstance(u, Function):
+        #     raise TypeError('Parameter `u` must be a `dolfin.Function`.')
 
         self.d = d = len(u)
         self.I = I = Identity(d)
@@ -95,6 +95,8 @@ class MaterialModelBase:
 
         self.deformation_measures = DeformationMeasures(u)
 
+        return self
+
     def is_initialized(self):
         '''Check if model has been initialized.'''
         return self.deformation_measures is not None and \
@@ -158,70 +160,7 @@ class NeoHookean(MaterialModelBase):
             self.pk1.append(pk1)
             self.pk2.append(pk2)
 
-
-class Yeoh(MaterialModelBase):
-    def initialize(self, u):
-        super().initialize(u)
-
-        d  = self.deformation_measures.d
-        F  = self.deformation_measures.F
-        I1 = self.deformation_measures.I1
-
-        for m in self._material_parameters:
-
-            expected_material_parameter_names = \
-                [f'C{i}' for i in range(1, len(m)+1)]
-
-            if any(key_i not in expected_material_parameter_names for key_i in m.keys()):
-                raise KeyError('Expected material parameter names for "Yeoh" '
-                               f'model: f{expected_material_parameter_names}')
-
-            Cs = (m[key_i] for key_i in expected_material_parameter_names)
-            psi = sum(C_i*(I1-d)**i for i, C_i in enumerate(Cs, start=1))
-
-            pk1 = diff(psi, F)
-            pk2 = dot(inv(F), pk1)
-
-            self.psi.append(psi)
-            self.pk1.append(pk1)
-            self.pk2.append(pk2)
-
-
-class MooneyRivlin(MaterialModelBase):
-    def initialize(self, u):
-        super().initialize(u)
-
-        d  = self.deformation_measures.d
-        F  = self.deformation_measures.F
-        J  = self.deformation_measures.J
-        I1 = self.deformation_measures.I1
-        I2 = self.deformation_measures.I2
-        # I3 = self.deformation_measures.I3
-
-        # bar_I1 = I1 / J     if d == 2 else I1 / J**(2/d)
-        # bar_I2 = I2 / J**-2 if d == 2 else I2 / J**(4/d)
-
-        for m in self._material_parameters:
-
-            C1 = m.get('C1', 0)
-            C2 = m.get('C2', 0)
-            D1 = m.get('D1', 0)
-
-            # NOTE: In the limit of small strains
-            # mu = 2 * (C2 + C1); kappa = 2 * D1
-
-            psi = 0
-
-            if C1: psi += C1*(I1 - d)
-            if C2: psi += C2*(I2 - (d-1.0)*d/2.0)
-            if D1: psi += D1*(J - 1.0)**2
-
-            pk1 = diff(psi, F)
-            pk2 = dot(inv(F), pk1)
-
-            self.psi.append(psi)
-            self.pk1.append(pk1)
-            self.pk2.append(pk2)
+        return self
 
 
 class StVenantKirchhoff(MaterialModelBase):
@@ -249,25 +188,73 @@ class StVenantKirchhoff(MaterialModelBase):
             self.pk1.append(pk1)
             self.pk2.append(pk2)
 
+        return self
 
-class Demiray(MaterialModelBase):
-    def initialize(self, u):
-        super().initialize(u)
 
-        d  = self.deformation_measures.d
-        F  = self.deformation_measures.F
-        I1 = self.deformation_measures.I1
+# class Yeoh(MaterialModelBase):
+#     def initialize(self, u):
+#         super().initialize(u)
+#
+#         d  = self.deformation_measures.d
+#         F  = self.deformation_measures.F
+#         I1 = self.deformation_measures.I1
+#
+#         for m in self._material_parameters:
+#
+#             expected_material_parameter_names = \
+#                 [f'C{i}' for i in range(1, len(m)+1)]
+#
+#             if any(key_i not in expected_material_parameter_names for key_i in m.keys()):
+#                 raise KeyError('Expected material parameter names for "Yeoh" '
+#                                f'model: f{expected_material_parameter_names}')
+#
+#             Cs = (m[key_i] for key_i in expected_material_parameter_names)
+#             psi = sum(C_i*(I1-d)**i for i, C_i in enumerate(Cs, start=1))
+#
+#             pk1 = diff(psi, F)
+#             pk2 = dot(inv(F), pk1)
+#
+#             self.psi.append(psi)
+#             self.pk1.append(pk1)
+#             self.pk2.append(pk2)
+#
+#         return self
 
-        for m in self._material_parameters:
 
-            C1 = m.get('C1', 0)
-            C2 = m.get('C2', 0)
-
-            psi = C1*(exp(C2*(I1-d))-1.0)
-
-            pk1 = diff(psi, F)
-            pk2 = dot(inv(F), pk1)
-
-            self.psi.append(psi)
-            self.pk1.append(pk1)
-            self.pk2.append(pk2)
+# class MooneyRivlin(MaterialModelBase):
+#     def initialize(self, u):
+#         super().initialize(u)
+#
+#         d  = self.deformation_measures.d
+#         F  = self.deformation_measures.F
+#         J  = self.deformation_measures.J
+#         I1 = self.deformation_measures.I1
+#         I2 = self.deformation_measures.I2
+#         # I3 = self.deformation_measures.I3
+#
+#         # bar_I1 = I1 / J     if d == 2 else I1 / J**(2/d)
+#         # bar_I2 = I2 / J**-2 if d == 2 else I2 / J**(4/d)
+#
+#         for m in self._material_parameters:
+#
+#             C1 = m.get('C1', 0)
+#             C2 = m.get('C2', 0)
+#             D1 = m.get('D1', 0)
+#
+#             # NOTE: In the limit of small strains
+#             # mu = 2 * (C2 + C1); kappa = 2 * D1
+#
+#             psi = 0
+#
+#             if C1: psi += C1*(I1 - d)
+#             if C2: psi += C2*(I2 - (d-1.0)*d/2.0)
+#             if D1: psi += D1*(J - 1.0)**2
+#
+#             pk1 = diff(psi, F)
+#             pk2 = dot(inv(F), pk1)
+#
+#             self.psi.append(psi)
+#             self.pk1.append(pk1)
+#             self.pk2.append(pk2)
+#
+#         return self
