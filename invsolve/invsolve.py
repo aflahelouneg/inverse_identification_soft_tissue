@@ -2550,7 +2550,7 @@ class InverseSolver(InverseSolverBasic):
         if len(u_msr) != len(dx_msr):
             raise TypeError('Parameters `u_msr` and `dx_msr`')
 
-        if not (isinstance(u_obs, Function) and len(u_obs.ufl_shape) == 1):
+        if not (isinstance(u_obs, ufl_expr_t) and len(u_obs.ufl_shape) == 1):
             raise TypeError('Parameter `u_obs`')
 
         if not all(isinstance(u_msr_i, ufl_expr_t) and \
