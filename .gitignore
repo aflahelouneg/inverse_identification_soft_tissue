@@ -5,6 +5,7 @@
 __pycache__
 /test_*.py
 
+test_*
 archive/
 docs/
 notes/

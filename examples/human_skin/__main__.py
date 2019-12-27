@@ -431,25 +431,6 @@ if PROBLEM_SUBCASE == "monolithic":
         auxiliary_parameters['lagrange_multiplier'] = \
             Constant(model_parameter_init[-1])
 
-    elif MATERIAL_MODEL_NAMES[0] == "Yeoh":
-
-        material_classes.append(material.Yeoh)
-
-        if not FIXED_EXTERNAL_BOUNDARY:
-
-            if MESH_NAME_TAG: model_parameter_init = (1.00e-02, 2.00e-2, 1.00e-12)
-            else: raise NotImplementedError
-
-            material_parameters.append({
-                f'C{i}': Constant(value) for i, value in enumerate(model_parameter_init[:-1], start=1)
-                })
-
-            auxiliary_parameters['lagrange_multiplier'] = \
-                Constant(model_parameter_init[-1])
-
-        else:
-            raise NotImplementedError(f'`FIXED_EXTERNAL_BOUNDARY`: {FIXED_EXTERNAL_BOUNDARY}')
-
     else:
         raise NotImplementedError(f'`MATERIAL_MODEL_NAMES`: {MATERIAL_MODEL_NAMES}.')
 
@@ -546,41 +527,6 @@ elif PROBLEM_SUBCASE == "bimaterial":
 
             else:
                 raise NotImplementedError(f'`len(model_parameter_init)`: {len(model_parameter_init)}')
-
-        else:
-            raise NotImplementedError(f'`FIXED_EXTERNAL_BOUNDARY`: {FIXED_EXTERNAL_BOUNDARY}')
-
-
-    elif MATERIAL_MODEL_NAMES[0] == "Yeoh" and \
-         MATERIAL_MODEL_NAMES[1] == "NeoHookean":
-
-        material_classes.append(material.Yeoh)
-        material_classes.append(material.NeoHookean)
-
-        if not FIXED_EXTERNAL_BOUNDARY:
-
-            if MESH_NAME_TAG: #  == "2"
-
-                model_parameter_init = (
-                    1.00e-01, # C1
-                    1.00e-12, # lagrange_multiplier
-                    ) # Keloid skin
-
-            else:
-                raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
-
-            material_parameters.append({
-                f'C{i}': Constant(value) for i, value in
-                    enumerate(model_parameter_init[:-1], start=1)
-                }) # Keloid skin
-
-            material_parameters.append({
-                'E':  1.0e-04,
-                'nu': 0.1,
-                }) # Healthy skin
-
-            auxiliary_parameters['lagrange_multiplier'] = \
-                Constant(model_parameter_init[-1])
 
         else:
             raise NotImplementedError(f'`FIXED_EXTERNAL_BOUNDARY`: {FIXED_EXTERNAL_BOUNDARY}')
