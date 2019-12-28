@@ -878,7 +878,6 @@ class InverseSolverBasic:
 
             DJDm_dm = dJ/norm_dm
             D2JDm2_dm = d2J/norm_dm**2
-            dircos = -DJDm_dm/norm_DJDm
 
             is_decreasing = DJDm_dm < 0.0
             is_pathconvex = D2JDm2_dm > 0.0
@@ -889,8 +888,7 @@ class InverseSolverBasic:
                     f'  norm(DJDm_old)     :{norm_DJDm_old: g}\n'
                     f'  norm(DJDm)         :{norm_DJDm: g}\n\n'
                     f'  DJDm[dm]           :{DJDm_dm: g}\n'
-                    f'  D2JDm2[dm]         :{D2JDm2_dm: g}\n'
-                    f'  cosine[dm]         :{dircos: g}\n\n'
+                    f'  D2JDm2[dm]         :{D2JDm2_dm: g}\n\n'
                     f'  model param.,  m   : {m}\n'
                     f'  delta param., dm   : {dm}\n\n'
                     f'  is path convex     : {is_pathconvex}\n'
@@ -941,11 +939,6 @@ class InverseSolverBasic:
                     self._property['cumsum_D2JDm2'] = D2JDm2_old
 
                     break
-
-            elif norm_DJDm_old - norm_DJDm < atol:
-                logger.info('Iterations converged in cost gradient norm')
-                is_converged = True
-                break
 
             m += dm
 
