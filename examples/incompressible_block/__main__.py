@@ -1,17 +1,15 @@
-'''Uniaxial extension of a bar.
+'''
+Horizontal shearing of a 3D bar that is made up of incompressible hyperelastic
+material.
 
-- Without sensitivity analysis.
-- The force mismatch cost is a square term.
+Dirichlet boundary conditions of zero displacements are prescribed on the bottom
+face. Neumann boundary conditions of uniform x-axis traction are prescribed on
+the top face. Displacement field measurements are taken on the top face.
 
-Measurements
-------------
-- Measured displacement field on the top face.
-- Measured reaction (tractions) on the right face.
-
-Boundary conditions
--------------------
-- Imposed displacements on the right face.
-- Imposed zero-displacement on the left face.
+Note, the formulation involves a pressure field (in addition to the displacement
+field). The pressure field can be uniquely determined if non-zero Neumann BCs are
+imposed. (In other examples, a (compressible) hyperelastic solid could be loaded
+by prescribed displacements because the hyperelastic problem was solvable.)
 
 '''
 
@@ -30,6 +28,7 @@ from dolfin import DirichletBC
 from dolfin import Expression
 from dolfin import Function
 from dolfin import assemble
+from dolfin import derivative
 
 import invsolve
 import material
@@ -43,108 +42,146 @@ logger.setLevel(logging.INFO)
 
 ### Problem parameters
 
-NUM_OBSERVATIONS = 4
-
-SMALL_DISPLACEMENTS = True
-
-FINITE_ELEMENT_DEGREE = 1
+NUM_OBSERVATIONS = 3
+SMALL_DISPLACEMENTS = False
 
 PLOT_RESULTS = True
 SAVE_RESULTS = True
 
+DEGREE_u = 2
+DEGREE_p = 1
+
 PROBLEM_DIR = os.path.dirname(os.path.relpath(__file__))
 RESULTS_DIR = os.path.join(PROBLEM_DIR, "results")
 
-parameters_inverse_solver = {
+PARAMETERS_INVERSE_SOLVER = {
     'solver_method': 'newton', # 'newton' or 'gradient'
     'sensitivity_method': 'adjoint', # 'adjoint' or 'direct'
-    'maximum_iterations': 25,
+    'maximum_iterations': 10,
     'maximum_divergences': 5,
     'absolute_tolerance': 1e-6,
-    'relative_tolerance': 1e-6,
+    'relative_tolerance': 1e-5,
     'maximum_relative_change': None,
     'error_on_nonconvergence': False,
+    }
+
+PARAMETERS_NONLINEAR_SOLVER = {
+    'nonlinear_solver': 'snes', # 'newton', 'snes'
+    'symmetric': True,
+    'print_matrix': False,
+    'print_rhs': False,
+    'snes_solver' : {
+        'absolute_tolerance': 1e-9,
+        'error_on_nonconvergence': True,
+        'line_search': 'bt', # 'basic' | 'bt'
+        'linear_solver': 'lu',
+        'maximum_iterations': 100,
+        'maximum_residual_evaluations': 2000,
+        'method': 'default',
+        'preconditioner': 'default',
+        'relative_tolerance': 1e-12,
+        'report': True,
+        'sign': 'default',
+        'solution_tolerance': 1e-9,
+        },
     }
 
 
 ### Measurements (fabricated)
 
+observation_times = range(1, NUM_OBSERVATIONS+1)
+
 # Box problem domain
-W, L, H = 2.0, 1.0, 1.0
+L, W, H = 2.0, 0.5, 0.5
 
 # Maximum horizontal displacement of right-face
 if SMALL_DISPLACEMENTS:
-    uxD_max = 1e-5 # Small displacement case
+    uxD_max = 0.002 # Small displacement case
 else:
-    uxD_max = 1e-1 # Large displacement case
+    uxD_max = 0.20 # Large displacement case
 
 # Fabricated model parameters
-E_target, nu_target = 1.0, 0.3
+mu_target = 1.0
+nu_target = 0.5
 
-# NOTE: The predicted model parameters will be close to the target model
-# parameters when the displacements are small. This is consistent with the
-# hyper-elastic model approaching the linear-elastic model in the limit of
-# small strains. The difference between the solutions will be greater for
-# larger displacements.
+E_target = 2.0*mu_target*(1.0+nu_target)
 
-ex_max = uxD_max / W # Engineering strain
-Tx_max = E_target * ex_max # Right-face traction
+exz_max = uxD_max / H # Engineering shear strain
+Tx_max = mu_target * exz_max # Top face shear traction in direction of x-axis
 
-measurements_Tx  = np.linspace(0,  Tx_max, NUM_OBSERVATIONS+1)
+measurements_Tx = np.linspace(0, Tx_max, NUM_OBSERVATIONS+1)
 measurements_uxD = np.linspace(0, uxD_max, NUM_OBSERVATIONS+1)
 
-# Fabricate top-face boundary displacement field measurements
-u_msr = Expression(('ex*x[0]', '-nu*ex*x[1]', '-nu*ex*x[2]'),
-                   ex=0.0, nu=nu_target, degree=1)
+class DisplacementMeasurement(dolfin.UserExpression):
 
-# Right-face boundary traction measurements
-T_msr = Expression(('value_x', '0.0', '0.0'),
-                   value_x=0.0, degree=0)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.value_exz = 0.0
 
-# Right-face boundary displacements measurements
-uxD_msr = Expression('value', value=0.0, degree=0)
+    def value_shape(self):
+        return (3,) # Must be literal (Otherwise, must be defined in `__new__`, i.e. before `__init__`)
+
+    def eval(self, value, x):
+        value[0] = self.value_exz*x[2]
+        value[1] = 0.0
+        value[2] = 0.0
+
+class TractionMeasurement(dolfin.UserExpression):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.value_x = 0.0
+
+    def value_shape(self):
+        return (3,)
+
+    def eval(self, value, x):
+        value[0] = self.value_x
+        value[1] = 0.0
+        value[2] = 0.0
+
+u_msr = DisplacementMeasurement(degree=1)
+T_msr = TractionMeasurement(degree=0)
 
 def measurement_setter(i):
-    '''Set measurements at index `i`.'''
+    '''Set measurements at index'''
+    u_msr.value_exz = measurements_uxD[i] / H
     T_msr.value_x = measurements_Tx[i]
-    u_msr.ex = measurements_uxD[i] / W
-    uxD_msr.value = measurements_uxD[i]
 
-using_subdims_u_msr = [0, 1] # [0, 1, 2]
-using_subdims_T_msr = [0]
+# using_subdims_u_msr = [0, 1, 2,]
+# using_subdims_u_msr = [0, 2,]
+using_subdims_u_msr = [0,]
+using_subdims_T_msr = [0,]
 
 
 ### Mesh
 
-nz = 10
-nx = max(int(nz*W/H), 1)
-ny = max(int(nz*L/H), 1)
+nx = 20
+ny = max(int(nx*W/L), 1)
+nz = max(int(nx*H/L), 1)
 
-mesh = dolfin.BoxMesh(dolfin.Point(0,0,0), dolfin.Point(W,L,H), nx, ny, nz)
+mesh = dolfin.BoxMesh(dolfin.Point(0,0,0), dolfin.Point(L,W,H), nx, ny, nz)
 
-# Define the fixed boundaries and measurement subdomains
-
-boundary_fix = dolfin.CompiledSubDomain(f'on_boundary && near(x[0], {0.0})')
-boundary_msr = dolfin.CompiledSubDomain(f'on_boundary && near(x[0], {W})')
-boundary_dic = dolfin.CompiledSubDomain(f'on_boundary && near(x[1], {L})')
+boundary_fix = dolfin.CompiledSubDomain(f'on_boundary && near(x[2], {0.0})')
+boundary_msr = dolfin.CompiledSubDomain(f'on_boundary && near(x[2], {H})')
+boundary_dic = dolfin.CompiledSubDomain(f'on_boundary && near(x[2], {H})')
 
 fixed_vertex_000 = dolfin.CompiledSubDomain(
     f'near(x[0], {0.0}) && near(x[1], {0.0}) && near(x[2], {0.0})')
 
 fixed_vertex_010 = dolfin.CompiledSubDomain(
-    f'near(x[0], {0.0}) && near(x[1], {L}) && near(x[2], {0.0})')
+    f'near(x[0], {0.0}) && near(x[1], {W}) && near(x[2], {0.0})')
 
 # Mark the elemental entities (e.g. cells, facets) belonging to the subdomains
 
-domain_dim = mesh.geometry().dim()
-boundary_dim = domain_dim - 1
+gdim = mesh.geometry().dim()
 
-boundary_markers = dolfin.MeshFunction('size_t', mesh, boundary_dim)
+boundary_markers = dolfin.MeshFunction('size_t', mesh, gdim-1)
 boundary_markers.set_all(0) # Assign all elements the default value
 
-id_subdomain_fix = 1 # Fixed boundary id
-id_subdomain_msr = 2 # Loaded boundary id
-id_subdomains_dic = 3 # displacement field measurement boundary id
+id_subdomain_fix  = 1 # Fixed boundary id
+id_subdomain_msr  = 2 # Loaded boundary id
+id_subdomains_dic = 2 # displacement field measurement boundary id
 
 boundary_fix.mark(boundary_markers, id_subdomain_fix)
 boundary_msr.mark(boundary_markers, id_subdomain_msr)
@@ -153,8 +190,8 @@ boundary_dic.mark(boundary_markers, id_subdomains_dic)
 
 ### Integration measures
 
-dx = dolfin.dx(domain=mesh) # for the whole domain
-ds = dolfin.ds(domain=mesh) # for the entire boundary
+dx = dolfin.dx(domain=mesh) #, degree=4)
+ds = dolfin.ds(domain=mesh) #, degree=4)
 
 ds_msr_T = dolfin.Measure('ds', mesh,
     subdomain_id=id_subdomain_msr,
@@ -167,96 +204,104 @@ ds_msr_u = dolfin.Measure('ds', mesh,
 
 ### Finite element function spaces
 
-V = dolfin.VectorFunctionSpace(mesh, 'CG', FINITE_ELEMENT_DEGREE)
+element_u = dolfin.VectorElement('CG', mesh.ufl_cell(), DEGREE_u, gdim)
+element_p = dolfin.FiniteElement('CG' if DEGREE_p else 'DG', mesh.ufl_cell(), DEGREE_p)
+element = dolfin.MixedElement([element_u, element_p])
 
-# Displacement field
-u = Function(V)
+V = dolfin.FunctionSpace(mesh, element)
+
+w = Function(V, name="u-p")
+
+u, p = dolfin.split(w)
+v, q = dolfin.TestFunctions(V)
 
 
-### Define hyperelastic material model
+### Hyperelastic material model
 
-material_parameters = {'E': Constant(1.0),
-                       'nu': Constant(0.0)}
+mu = Constant(1.0)
 
-E, nu = material_parameters.values()
 
-d = len(u) # Displacement dimension
+### Deformation measures
 
-I = dolfin.Identity(d)
-F = dolfin.variable(I + dolfin.grad(u))
+deformation_measures = material.DeformationMeasures(u)
 
-C  = F.T*F
-J  = dolfin.det(F)
-I1 = dolfin.tr(C)
-
-# Lame material parameters
-lm, mu = E*nu/((1.0 + nu)*(1.0 - 2.0*nu)), E/(2.0 + 2.0*nu)
-
-# Energy density of a Neo-Hookean material model
-psi = (mu/2.0) * (I1 - d - 2.0*dolfin.ln(J)) + (lm/2.0) * dolfin.ln(J) ** 2
-
-# Potential energy
-Pi = psi*dx # NOTE: There is no external force potential
+d = deformation_measures.d
+I = deformation_measures.I
+F = deformation_measures.F
+E = deformation_measures.E
+J = deformation_measures.J
+I1 = deformation_measures.I1
 
 
 ### Stress measures
 
-# First Piola-Kirchhoff
-pk1 = dolfin.diff(psi, F)
+# E_small = 0.5*(dolfin.grad(u) + dolfin.grad(u).T)
+# PK2_dev = 2.0*mu*E_small
 
-# Boundary traction
+PK2_dev = 2.0*mu*E
+PK1_dev = F*PK2_dev
+
+# PK2_hyd = dolfin.inv(F)*(-p)*dolfin.inv(F).T
+PK1_hyd = (-p)*dolfin.inv(F).T # A priori assumption of incompressibility (J=1)
+
 N = dolfin.FacetNormal(mesh)
-PN = dolfin.dot(pk1, N)
+PN = dolfin.dot(PK1_dev + PK1_hyd, N)
+
+dF = dolfin.grad(v)
+dpsi = dolfin.inner(PK1_dev, dF)
+
+dU = dpsi*dx # Variational strain energy
+dW = dolfin.dot(v, T_msr)*ds_msr_T # Virtual work
+dC = dolfin.derivative(-p*(J-1.0)*dx, w) # Incompressibility equation
+
+dPi_w = dU - dW + dC
 
 
 ### Dirichlet boundary conditions
 
 bcs = []
 
-Vx, Vy, Vz = V.split()
+V_u, V_p = V.split()
+V_ux, V_uy, V_uz = V_u.split()
 
 zero  = Constant(0)
 zeros = Constant((0,0,0))
 
-bcs.append(DirichletBC(Vx, zero, boundary_markers, id_subdomain_fix))
-bcs.append(DirichletBC(Vx, uxD_msr, boundary_markers, id_subdomain_msr))
+# # Zero displacement BCs
+bcs.append(DirichletBC(V_u, zeros, boundary_markers, id_subdomain_fix))
 
-bcs.append(DirichletBC(V, zeros, fixed_vertex_000, "pointwise"))
-bcs.append(DirichletBC(Vz, zero, fixed_vertex_010, "pointwise"))
+# Zero horizontal displacement BCs
+# bcs.append(DirichletBC(V_ux, zero, boundary_markers, id_subdomain_fix))
+# bcs.append(DirichletBC(V_u, zeros, fixed_vertex_000, "pointwise"))
+# bcs.append(DirichletBC(V_uz, zero, fixed_vertex_010, "pointwise"))
 
 
 ### Model cost and constraints
 
-# Observed displacement
-u_obs = u # NOTE: Generally a vector-valued sub-function
-
-# Observed tractions
-T_obs = PN # NOTE: Generally a sequence of vector-valued tractions
+u_obs = u  # Observed displacement
+T_obs = PN # Observed tractions
 
 # Displacement misfit cost
-J_u = sum((u_obs[i]-u_msr[i])**2*ds_msr_u for i in using_subdims_u_msr)
-J_c = sum((T_obs[i]-T_msr[i])**2*ds_msr_T for i in using_subdims_T_msr)
-
-# Model cost
-J = J_u + J_c
-
-# Variational problem for static-equilibrium
-F = dolfin.derivative(Pi, u)
+cost = sum((u_obs[i]-u_msr[i])**2*ds_msr_u for i in using_subdims_u_msr)
 
 
 ### Inverse problem
 
-observation_times = range(1, NUM_OBSERVATIONS+1)
+material_parameters = {'mu': mu}
 
-# Model parameters to be optimized
-model_parameters = [material_parameters]
+model_parameters = [material_parameters] # To be optimized
 
-inverse_solver_basic = invsolve.InverseSolverBasic(J, F, u, bcs,
-    model_parameters, observation_times, measurement_setter,
-    parameters_inverse_solver)
+inverse_solver_basic = invsolve.InverseSolverBasic(cost, dPi_w, w, bcs,
+    model_parameters, observation_times, measurement_setter)
 
 inverse_solver = invsolve.InverseSolver(inverse_solver_basic,
     u_obs, u_msr, ds_msr_u, T_obs, T_msr, ds_msr_T)
+
+inverse_solver.set_parameters_inverse_solver(
+    PARAMETERS_INVERSE_SOLVER)
+
+inverse_solver.set_parameters_nonlinear_solver(
+    PARAMETERS_NONLINEAR_SOLVER)
 
 
 ### Solve inverse problem
@@ -404,8 +449,17 @@ if __name__ == '__main__':
     print('\ncond(D2JDm2):')
     print(f'{cond_D2JDm2:.5e}')
 
-    print(f'\nnorm(u):')
-    print(f'{dolfin.norm(u):.5e}')
+    print('\nint w[0] ds_msr_u:')
+    print(f'{assemble(w[0]*ds_msr_u(domain=mesh)):.3e}')
+
+    print(f'int u_msr[0] ds_msr_u:')
+    print(f'{assemble(u_msr[0]*ds_msr_u(domain=mesh)):.3e}')
+
+    print('\nint PN[0] ds_msr_T:')
+    print(f'{assemble(PN[0]*ds_msr_u(domain=mesh)):.3e}')
+
+    print(f'int T_msr[0] ds_msr_T:')
+    print(f'{assemble(T_msr[0]*ds_msr_u(domain=mesh)):.3e}')
 
     if PLOT_RESULTS or SAVE_RESULTS:
 
@@ -425,6 +479,12 @@ if __name__ == '__main__':
             if not PLOT_RESULTS:
                 plt.close('all')
 
-            outfile = dolfin.File(os.path.join(RESULTS_DIR,'pvd','u.pvd'))
+            outfile_u = dolfin.File(os.path.join(RESULTS_DIR,'pvd','u.pvd'))
+            outfile_p = dolfin.File(os.path.join(RESULTS_DIR,'pvd','p.pvd'))
+
+            u_, p_ = w.split()
+
             for t in inverse_solver.observation_times:
-                outfile << inverse_solver.observe_u(t, copy=False)
+                inverse_solver.solve_nonlinear_problem(t)
+                outfile_u << u_
+                outfile_p << p_
