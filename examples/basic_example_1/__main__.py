@@ -189,7 +189,8 @@ J  = dolfin.det(F)
 I1 = dolfin.tr(C)
 
 # Lame material parameters
-lm, mu = E*nu/((1.0 + nu)*(1.0 - 2.0*nu)), E/(2.0 + 2.0*nu)
+lm = E*nu/((1.0 + nu)*(1.0 - 2.0*nu))
+mu = E/(2.0 + 2.0*nu)
 
 # Energy density of a Neo-Hookean material model
 psi = (mu/2.0) * (I1 - d - 2.0*dolfin.ln(J)) + (lm/2.0) * dolfin.ln(J) ** 2
@@ -249,11 +250,10 @@ F = dolfin.derivative(Pi, u)
 
 ### Inverse problem
 
-observation_times = range(1, NUM_OBSERVATIONS+1)
-
-# Model parameters to be optimized
 model_parameters = [material_parameters]
 model_parameters.append(constraint_multipliers)
+
+observation_times = range(1, NUM_OBSERVATIONS+1)
 
 inverse_solver_basic = invsolve.InverseSolverBasic(J, F, u, bcs,
     model_parameters, observation_times, measurement_setter,

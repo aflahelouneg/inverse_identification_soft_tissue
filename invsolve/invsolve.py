@@ -884,6 +884,7 @@ class InverseSolverBasic:
             is_converging = norm_DJDm < norm_DJDm_old
 
             if logging_level <= logging.INFO:
+
                 print('\n'
                     f'  norm(DJDm_old)     :{norm_DJDm_old: g}\n'
                     f'  norm(DJDm)         :{norm_DJDm: g}\n\n'
@@ -896,18 +897,18 @@ class InverseSolverBasic:
                     f'  is cost converging : {is_converging}\n'
                     , flush=True)
 
-            if logging_level <= logging.DEBUG and dm_old is not None:
+                if dm_old is not None:
 
-                # Check if the directional second derivative of `J` can estimate the
-                # change in gradient of `J` between previous and current iterations.
+                    # Check if the directional second derivative of `J` can estimate the
+                    # change in gradient of `J` between previous and current iterations.
 
-                dDJDm_exact = DJDm - DJDm_old
-                dDJDm_estim = (D2JDm2_old + D2JDm2).dot(dm_old) * 0.5
-                # err_dDJDm = linalg.norm(dDJDm_estim-dDJDm_exact)/linalg.norm(dDJDm_exact)
+                    dDJDm_exact = DJDm - DJDm_old
+                    dDJDm_estim = (D2JDm2_old + D2JDm2).dot(dm_old) * 0.5
+                    # err_dDJDm = linalg.norm(dDJDm_estim-dDJDm_exact)/linalg.norm(dDJDm_exact)
 
-                print(f'  {"estimated change in DJDm, i.e. D2JDm2[dm_old]":s} : {dDJDm_estim}\n'
-                      f'  {"actual change in DJDm, i.e. DJDm_new-DJDm_old":s} : {dDJDm_exact}\n'
-                      , flush=True)
+                    print(f'  {"estimated change in DJDm, i.e. D2JDm2[dm_old]":s} : {dDJDm_estim}\n'
+                          f'  {"actual change in DJDm, i.e. DJDm_new-DJDm_old":s} : {dDJDm_exact}\n'
+                          , flush=True)
 
             if np.all(np.abs(dm) < atol):
                 logger.info('Iterations converged in absolute tolerance')
