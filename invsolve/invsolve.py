@@ -41,17 +41,18 @@ class InverseSolverBasic:
     INVERSE_SOLVER_METHOD_NEWTON = 'newton'
     INVERSE_SOLVER_METHOD_GRADIENT = 'gradient'
 
-    def __init__(self, J, F, u, bcs, model_parameters,
-                 observation_times, measurement_setter,
-                 parameters_inverse_solver=None):
+    def __init__(self, Q, L, F, u, bcs, model_parameters,
+                 observation_times, measurement_setter):
         '''
         Initialize basic inverse solver.
 
         Parameters
         ----------
+        Q : ufl.Form
+            Cost functional whose integrand is a square.
 
-        J : ufl.Form
-            The cost functional to be minimized.
+        L : ufl.Form
+            Cost functional that will be considered as `0.5*L**2`.
 
         F : ufl.Form
             Variational form.
@@ -73,8 +74,16 @@ class InverseSolverBasic:
 
         '''
 
-        if not isinstance(J, ufl_form_t):
-            raise TypeError('Parameter `J`')
+        if Q is None and L is None:
+            raise TypeError('Parameters `Q` and `L` cannot both be `None`')
+
+        if not isinstance(Q, ufl_form_t) and Q is not None:
+            raise TypeError('Parameter `Q` must be a `dolfin` '
+                            'integral form or a `None`')
+
+        if not isinstance(L, ufl_form_t) and L is not None:
+            raise TypeError('Parameter `L` must be a `dolfin` '
+                            'integral form or a `None`')
 
         if not isinstance(F, ufl_form_t):
             raise TypeError('Parameter `F`')
@@ -95,7 +104,9 @@ class InverseSolverBasic:
 
         self._n = len(self._m)
 
-        self._J = J
+        self._Q = Q
+        self._L = L
+
         self._F = F
         self._u = u
 
@@ -106,19 +117,22 @@ class InverseSolverBasic:
         self._d2udm2 = tuple(tuple(Function(self._V) for j in range(i, self._n))
             for i in range(self._n)) # NOTE: Storing only the upper triangle
 
-        self._dJdu, self._dJdm, self._d2Jdu2, self._d2Jdudm, self._d2Jdm2 \
-            = self._partial_derivatives_of_form(self._J)
+        self._dFdu, self._dFdm, self._d2Fdu2, self._d2Fdm2, \
+            self._d2Fdudm = self._partial_derivatives_of_form(F)
 
-        self._dFdu, self._dFdm, self._d2Fdu2, self._d2Fdudm, self._d2Fdm2 \
-            = self._partial_derivatives_of_form(self._F)
+        if Q is not None:
+            self._dQdu, self._dQdm, self._d2Qdu2, self._d2Qdm2, \
+                self._d2Qdudm = self._partial_derivatives_of_form(Q)
+        else:
+            self._dQdu = self._dQdm = self._d2Qdu2 = \
+                self._d2Qdm2 = self._d2Qdudm = None
 
-        try:    action(self._d2Jdu2, self._u)
-        except: self._is_actionable_d2Jdu2 = False
-        else:   self._is_actionable_d2Jdu2 = True
-
-        try:    action(self._d2Fdu2, self._u)
-        except: self._is_actionable_d2Fdu2 = False
-        else:   self._is_actionable_d2Fdu2 = True
+        if L is not None:
+            self._dLdu, self._dLdm, self._d2Ldu2, self._d2Ldm2, \
+                self._d2Ldudm = self._partial_derivatives_of_form(L)
+        else:
+            self._dLdu = self._dLdm = self._d2Ldu2 = \
+                self._d2Ldm2 = self._d2Ldudm = None
 
         ### Dirichlet BC's
 
@@ -134,11 +148,9 @@ class InverseSolverBasic:
 
         ### Solvers
 
-        self._dFdu_mtx = dolfin.PETScMatrix()
         self._linear_solver = dolfin.LUSolver()
-
-        self._nonlinear_solver = dolfin.NonlinearVariationalSolver(dolfin \
-            .NonlinearVariationalProblem(self._F, self._u, bcs, self._dFdu))
+        self._nonlinear_solver = dolfin.NonlinearVariationalSolver(
+            dolfin.NonlinearVariationalProblem(F, u, bcs, self._dFdu))
 
         ### Solver parameters
 
@@ -148,9 +160,6 @@ class InverseSolverBasic:
 
         self.set_parameters_linear_solver(config.parameters_linear_solver)
         self.set_parameters_nonlinear_solver(config.parameters_nonlinear_solver)
-
-        if parameters_inverse_solver is not None:
-            self.set_parameters_inverse_solver(parameters_inverse_solver)
 
         ### Properties to be shared with a derived class
 
@@ -167,25 +176,64 @@ class InverseSolverBasic:
             'cumsum_DJDm': None,
             'cumsum_D2JDm2': None,
             'is_converged': False,
-            'is_missing_z': True,
-            'is_missing_dudm': True,
-            'is_missing_d2udm2': True,
-            'is_missing_dFdu_mtx': True,
+            'is_expired_z': True,
+            'is_expired_dudm': True,
+            'is_expired_d2udm2': True,
             }
 
+        self._assembled_init = {
+            'dFdu':     None,
+            'dFdm':     None,
+            'Q':        None,
+            'dQdu':     None,
+            'dQdm':     None,
+            'd2Qdu2':   None,
+            'd2Qdm2':   None,
+            'd2Qdudm':  None,
+            'L':        None,
+            'dLdu':     None,
+            'dLdm':     None,
+            'd2Ldu2':   None,
+            'd2Ldm2':   None,
+            'd2Ldudm':  None,
+            'J':        None,
+            'dJdu':     None,
+            'dJdm':     None,
+            'd2Jdu2':   None,
+            'd2Jdm2':   None,
+            'd2Jdudm':  None,
+        }
+
+        if Q is None:
+            self._assembled_init['Q']       = 0.0
+            self._assembled_init['dQdu']    = dolfin.PETScVector(dolfin.MPI.comm_world, self._V.dim())
+            self._assembled_init['dQdm']    = (0.0,) * self._n
+            self._assembled_init['d2Qdu2']  = np.zeros((self._V.dim(), self._V.dim()), float)
+            self._assembled_init['d2Qdm2']  = tuple(tuple(0.0 for _ in range(i, self._n)) for i in range(self._n))
+            self._assembled_init['d2Qdudm'] = (self._assembled_init['dQdu'],)*self._n
+
+        if L is None:
+            self._assembled_init['L']       = 0.0
+            self._assembled_init['dLdu']    = dolfin.PETScVector(dolfin.MPI.comm_world, self._V.dim())
+            self._assembled_init['dLdm']    = (0.0,) * self._n
+            self._assembled_init['d2Ldu2']  = np.zeros((self._V.dim(), self._V.dim()), float)
+            self._assembled_init['d2Ldm2']  = tuple(tuple(0.0 for _ in range(i, self._n)) for i in range(self._n))
+            self._assembled_init['d2Ldudm'] = (self._assembled_init['dLdu'],)*self._n
+
+        self._assembled = self._assembled_init.copy()
         self.assign_observation_times(observation_times)
         self.assign_measurement_setter(measurement_setter)
 
 
     def _partial_derivatives_of_form(self, f):
-        '''Partial derivatives of form.
+        '''Partial derivatives of form `f` with respect to the displacement field
+        (`dolfin.Function`) `u` and model parameters (`dolfin.Constant`s) `m`.
 
         Parameters
         ----------
         f : ufl.Form
-            A form that is differentiable with respect to the primary field
-            `self._u` (`dolfin.Function`) and model parameters `self._m`
-            (`tuple` of `dolfin.Constant`s).
+        u : dolfin.Function
+        m : sequence of dolfin.Constant's
 
         Notes
         -----
@@ -201,10 +249,9 @@ class InverseSolverBasic:
         dfdm    = list(diff(f, m_i) for m_i in self._m)
         d2fdudm = tuple(diff(dfdu, m_i) for m_i in self._m)
         d2fdm2  = list(list(diff(dfdm_i, m_j) for m_j in self._m[i:])
-            for i, dfdm_i in enumerate(dfdm)) # only upper triangular part
+                       for i, dfdm_i in enumerate(dfdm))
 
-        dx = dolfin.dx(self._V.mesh())
-        ufl_zero_dx = ufl_zero()*dx
+        ufl_zero_dx = ufl_zero()*dolfin.dx(self._V.mesh())
 
         for i, dfdm_i in enumerate(dfdm):
             if dfdm_i.empty():
@@ -219,7 +266,170 @@ class InverseSolverBasic:
 
         d2fdm2 = tuple(tuple(d2fdm2_i) for d2fdm2_i in d2fdm2)
 
-        return dfdu, dfdm, d2fdu2, d2fdudm, d2fdm2
+        return dfdu, dfdm, d2fdu2, d2fdm2, d2fdudm
+
+
+    def _assemble_Q(self):
+        Q = self._assembled['Q']
+        if Q is None:
+            Q = self._assembled['Q'] = assemble(self._Q)
+        return Q
+
+    def _assemble_dQdu(self):
+        dQdu = self._assembled['dQdu']
+        if dQdu is None:
+            dQdu = self._assembled['dQdu'] = assemble(self._dQdu)
+        return dQdu
+
+    # def _assemble_d2Qdu2(self):
+    #     d2Qdu2 = self._assembled['d2Qdu2']
+    #     if d2Qdu2 is None:
+    #         d2Qdu2 = self._assembled['d2Qdu2'] = assemble(self._d2Qdu2).array() # FIXME
+    #     return d2Qdu2
+
+    def _assemble_action_d2Qdu2(self, v1, v2):
+        '''Avoid explicitly assembling `self._d2Qdu2`.'''
+        return assemble(action(action(self._d2Qdu2, v1), v2))
+
+    def _assemble_dQdm(self):
+        dQdm = self._assembled['dQdm']
+        if dQdm is None:
+            dQdm = self._assembled['dQdm'] = [assemble(dQdm_i) for dQdm_i in self._dQdm]
+        return dQdm
+
+    def _assemble_d2Qdm2(self):
+        d2Qdm2 = self._assembled['d2Qdm2']
+        if d2Qdm2 is None:
+            d2Qdm2 = self._assembled['d2Qdm2'] = \
+                [[assemble(d2Qdm2_ij) for d2Qdm2_ij in d2Qdm2_i] for d2Qdm2_i in self._d2Qdm2]
+        return d2Qdm2
+
+    def _assemble_d2Qdudm(self):
+        d2Qdudm = self._assembled['d2Qdudm']
+        if d2Qdudm is None:
+            d2Qdudm = self._assembled['d2Qdudm'] = [assemble(d2Qdudm_i) for d2Qdudm_i in self._d2Qdudm]
+        return d2Qdudm
+
+
+    def _assemble_L(self):
+        L = self._assembled['L']
+        if L is None:
+            L = self._assembled['L'] = assemble(self._L)
+        return L
+
+    def _assemble_dLdu(self):
+        dLdu = self._assembled['dLdu']
+        if dLdu is None:
+            dLdu = self._assembled['dLdu'] = assemble(self._dLdu)
+        return dLdu
+
+    # def _assemble_d2Ldu2(self):
+    #     d2Ldu2 = self._assembled['d2Ldu2']
+    #     if d2Ldu2 is None:
+    #         d2Ldu2 = self._assembled['d2Ldu2'] = assemble(self._d2Ldu2).array()
+    #     return d2Ldu2
+
+    def _assemble_action_d2Ldu2(self, v1, v2):
+        '''Avoid explicitly assembling `self._d2Ldu2`.'''
+        return assemble(action(action(self._d2Ldu2, v1), v2))
+
+    def _assemble_dLdm(self):
+        dLdm = self._assembled['dLdm']
+        if dLdm is None:
+            dLdm = self._assembled['dLdm'] = [assemble(dLdm_i) for dLdm_i in self._dLdm]
+        return dLdm
+
+    def _assemble_d2Ldm2(self):
+        d2Ldm2 = self._assembled['d2Ldm2']
+        if d2Ldm2 is None:
+            d2Ldm2 = self._assembled['d2Ldm2'] = \
+                [[assemble(d2Ldm2_ij) for d2Ldm2_ij in d2Ldm2_i] for d2Ldm2_i in self._d2Ldm2]
+        return d2Ldm2
+
+    def _assemble_d2Ldudm(self):
+        d2Ldudm = self._assembled['d2Ldudm']
+        if d2Ldudm is None:
+            d2Ldudm = self._assembled['d2Ldudm'] = [assemble(d2Ldudm_i) for d2Ldudm_i in self._d2Ldudm]
+        return d2Ldudm
+
+
+    def _assemble_J(self):
+        J = self._assembled['J']
+        if J is None:
+            Q = self._assemble_Q()
+            L = self._assemble_L()
+            J = self._assembled['J'] = Q + 0.5*L*L
+        return J
+
+    def _assemble_dJdu(self):
+        dJdu = self._assembled['dJdu']
+        if dJdu is None:
+            L    = self._assemble_L()
+            dLdu = self._assemble_dLdu()
+            dQdu = self._assemble_dQdu()
+            dJdu = self._assembled['dJdu'] = dQdu + L*dLdu
+        return dJdu
+
+    # def _assemble_d2Jdu2(self):
+    #     # TODO: Compute the outer product of `self._assemble_dLdu()`
+    #     #       At this time I can compute the product with numpy arrays.
+    #     d2Jdu2 = self._assembled['d2Jdu2']
+    #     if d2Jdu2 is None:
+    #         L      = self._assemble_L()
+    #         dLdu   = self._assemble_dLdu().get_local()  # FIXME: not `np.ndarray`
+    #         d2Ldu2 = self._assemble_d2Ldu2()            # FIXME: `not np.ndarray`
+    #         d2Qdu2 = self._assemble_d2Qdu2()            # FIXME: `not np.ndarray`
+    #         d2Jdu2 = self._assembled['d2Jdu2'] = d2Qdu2 + np.outer(dLdu, dLdu) + L*d2Ldu2
+    #     return d2Jdu2
+
+    def _assemble_action_d2Jdu2(self, v1, v2):
+        '''Avoid explicitly assembling `self._d2Jdu2`.'''
+
+        rv = 0.0
+
+        if self._Q is not None:
+            rv += self._assemble_action_d2Qdu2(v1, v2)
+
+        if self._L is not None:
+            rv += self._assemble_L()*self._assemble_action_d2Ldu2(v1, v2) + \
+                  self._assemble_dLdu().inner(v1.vector()) * \
+                  self._assemble_dLdu().inner(v2.vector())
+
+        return rv
+
+    def _assemble_dJdm(self):
+        dJdm = self._assembled['dJdm']
+        if dJdm is None:
+            L    = self._assemble_L()
+            dLdm = self._assemble_dLdm()
+            dQdm = self._assemble_dQdm()
+            dJdm = self._assembled['dJdm'] = [dQdm_i + L*dLdm_i for dQdm_i, dLdm_i in zip(dQdm, dLdm)]
+        return dJdm
+
+    def _assemble_d2Jdm2(self):
+        d2Jdm2 = self._assembled['d2Jdm2']
+        if d2Jdm2 is None:
+            L      = self._assemble_L()
+            dLdm   = self._assemble_dLdm()
+            d2Ldm2 = self._assemble_d2Ldm2()
+            d2Qdm2 = self._assemble_d2Qdm2()
+            d2Jdm2 = self._assembled['d2Jdm2'] = \
+                [[d2Qdm2_ij + dLdm_i*dLdm_j + L*d2Ldm2_ij
+                for d2Qdm2_ij, dLdm_j, d2Ldm2_ij in zip(d2Qdm2_i, dLdm[i:], d2Ldm2_i)]
+                for i, (d2Qdm2_i, dLdm_i, d2Ldm2_i) in enumerate(zip(d2Qdm2, dLdm, d2Ldm2))]
+        return d2Jdm2
+
+    def _assemble_d2Jdudm(self):
+        d2Jdudm = self._assembled['d2Jdudm']
+        if d2Jdudm is None:
+            L       = self._assemble_L()
+            dLdu    = self._assemble_dLdu()
+            dLdm    = self._assemble_dLdm()
+            d2Ldudm = self._assemble_d2Ldudm()
+            d2Qdudm = self._assemble_d2Qdudm()
+            d2Jdudm = self._assembled['d2Jdudm'] = [d2Qdudm_i + dLdu*dLdm_i + d2Ldudm_i*L
+                for d2Qdudm_i, dLdm_i, d2Ldudm_i in zip(d2Qdudm, dLdm, d2Ldudm)]
+        return d2Jdudm
 
 
     def _reset_inverse_solution(self):
@@ -227,13 +437,11 @@ class InverseSolverBasic:
         self._property['cumsum_D2JDm2'] = None
         self._property['is_converged'] = False
 
-
     def _reset_nonlinear_solution(self):
-        self._property['is_missing_z'] = True
-        self._property['is_missing_dudm'] = True
-        self._property['is_missing_d2udm2'] = True
-        self._property['is_missing_dFdu_mtx'] = True
-
+        self._property['is_expired_z'] = True
+        self._property['is_expired_dudm'] = True
+        self._property['is_expired_d2udm2'] = True
+        self._assembled = self._assembled_init.copy()
 
     def _set_nonlinear_solution_time(self, t):
         self._property['measurement_setter'](t)
@@ -317,43 +525,38 @@ class InverseSolverBasic:
         return observation_times
 
 
-    def _assemble_dFdu_and_rhs_sym(self, rhs_form):
-        '''Assemble tangent system. Assembled `dFdu` will be symmetric.'''
+    def _assemble_dFdu_and_rhs_with_bcs(self, rhs_form):
+        '''Assemble `dFdu` and `rhs_form`, and apply homogenized BC's.
+        Assembled `dFdu` will be symmetric.'''
 
-        if self._property['is_missing_dFdu_mtx']:
-            _, rhs = assemble_system(self._dFdu, rhs_form,
-                self._bcs_zro, A_tensor=self._dFdu_mtx)
-            self._property['is_missing_dFdu_mtx'] = False
+        lhs = self._assembled['dFdu']
+
+        if lhs is None:
+            lhs, rhs = assemble_system(self._dFdu, rhs_form, self._bcs_zro)
+            self._assembled['dFdu'] = lhs
         else:
             rhs = assemble(rhs_form)
             rhs[self._bcs_dof] = 0.0
 
-        return self._dFdu_mtx, rhs
+        return lhs, rhs
 
 
-    def _assemble_dFdu_and_rhs(self, rhs_form):
-        '''Assemble tangent system. Assembled `dFdu` will be asymmetric.'''
+    def _assemble_dFdu_with_bcs(self):
+        '''Assemble `dFdu` and apply homogenized BC's.
+        Assembled `dFdu` will be unsymmetric.'''
 
-        if self._property['is_missing_dFdu_mtx']:
-            assemble(self._dFdu, tensor=self._dFdu_mtx)
-            self._property['is_missing_dFdu_mtx'] = False
-            for bc in self._bcs_zro: bc.apply(self._dFdu_mtx)
+        lhs = self._assembled['dFdu']
 
-        rhs = assemble(rhs_form)
-        rhs[self._bcs_dof] = 0.0
+        if lhs is None:
+            lhs = assemble(self._dFdu)
+            for bc in self._bcs_zro: bc.apply(lhs)
+            self._assembled['dFdu'] = lhs
 
-        return self._dFdu_mtx, rhs
+        return lhs
 
 
     def _compute_z(self):
-        '''Solve the adjoint problem for the adjoint variable `z` that is
-        required for computing cost sensitivities wrt model parameters.
-
-        Notes
-        -----
-        Since the variational form `self._F` was derived from the potential
-        energy functional `Pi`, the adjoint of the tangent stiffness is itself.
-        In other words, `adjoint(self._dFdu)` is equivalent to `self._dFdu`.
+        '''Solve the adjoint problem.
 
         Warning
         -------
@@ -365,22 +568,27 @@ class InverseSolverBasic:
         way around this problem is to assemble `dFdu` and `dJdu` separately by
         calling the `dolfin.assemble` function. Unfortunately, the assembled
         `dFdu` becomes unsymmetric after imposition of the boundary conditions.
-        The unsymmetric matrix could be a problem for certain types of solvers.
 
         '''
 
-        lhs, rhs = self._assemble_dFdu_and_rhs(-self._dJdu)
-        lhs = dolfin.PETScMatrix(lhs.mat().copy().transpose())
+        lhs = self._assemble_dFdu_with_bcs()
+
+        if not self.parameters_inverse_solver['is_symmetric_form_dFdu']:
+            lhs = dolfin.PETScMatrix(dolfin.as_backend_type(lhs).mat().transpose())
+
+        rhs = self._assemble_dJdu()
+        rhs[self._bcs_dof] = 0.0
+
         self._linear_solver.solve(lhs, self._z.vector(), rhs)
 
         self._z.vector()[self._bcs_dof] = 0.0
-        self._property['is_missing_z'] = False
+        self._property['is_expired_z'] = False
 
 
     def _compute_dudv(self, dFdv, dudv):
         '''Compute primary field derivatives.'''
 
-        lhs, rhs = self._assemble_dFdu_and_rhs_sym(-dFdv[0])
+        lhs, rhs = self._assemble_dFdu_and_rhs_with_bcs(-dFdv[0])
         self._linear_solver.solve(lhs, dudv[0].vector(), rhs)
 
         for dudv_i, dFdv_i in zip(dudv[1:], dFdv[1:]):
@@ -391,7 +599,7 @@ class InverseSolverBasic:
     def _compute_dudm(self):
         '''Compute primary field sensitivities.'''
         self._compute_dudv(self._dFdm, self._dudm)
-        self._property['is_missing_dudm'] = False
+        self._property['is_expired_dudm'] = False
 
 
     def _compute_d2udm2(self):
@@ -399,31 +607,27 @@ class InverseSolverBasic:
         `d2udm2` is symmetric, only the upper triangular part is stored.
         '''
 
-        if self._property['is_missing_dudm'] or \
-           self._property['is_missing_dFdu_mtx']:
+        if self._property['is_expired_dudm']:
             self._compute_dudm()
+
+        lhs = self._assembled['dFdu']
+        assert lhs is not None
 
         for i, dudm_i in enumerate(self._dudm, start=0):
             for j, dudm_j in enumerate(self._dudm[i:], start=i):
 
-                if self._is_actionable_d2Fdu2:
-                    action_action_d2Fdu2_dudm_j_dudm_i = \
-                        action(action(self._d2Fdu2, dudm_j), dudm_i)
-                else:
-                    action_action_d2Fdu2_dudm_j_dudm_i = 0
+                rhs = -assemble(self._d2Fdm2[i][j-i] + action(action(self._d2Fdu2, dudm_j), dudm_i))
 
-                rhs = - (
-                    assemble(self._d2Fdm2[i][j-i]
-                        + action_action_d2Fdu2_dudm_j_dudm_i)
-                    + assemble(self._d2Fdudm[j])*(dudm_i.vector())
-                    + assemble(self._d2Fdudm[i])*(dudm_j.vector()))
+                try: rhs -= assemble(action(self._d2Fdudm[j], dudm_i))
+                except: pass # `action(self._d2Fdudm[j], dudm_i)` is zero
+                try: rhs -= assemble(action(self._d2Fdudm[i], dudm_j))
+                except: pass # `action(self._d2Fdudm[i], dudm_j)` is zero
 
                 rhs[self._bcs_dof] = 0.0
 
-                self._linear_solver.solve(
-                    self._dFdu_mtx, self._d2udm2[i][j-i].vector(), rhs)
+                self._linear_solver.solve(lhs, self._d2udm2[i][j-i].vector(), rhs)
 
-        self._property['is_missing_d2udm2'] = False
+        self._property['is_expired_d2udm2'] = False
 
 
     def _factory_compute_dudv(self, dFdv):
@@ -453,8 +657,6 @@ class InverseSolverBasic:
         d2Fdmdv = tuple(tuple(diff(dFdv_i, m_j) for m_j in self._m)
             for dFdv_i in dFdv)
 
-        is_actionable_d2Fdu2 = self._is_actionable_d2Fdu2
-
         def compute_dudv_d2udmdv():
             '''Compute the first and second order mixed derivatives of the
             primary field with respect to the model parameters and variables.
@@ -462,28 +664,25 @@ class InverseSolverBasic:
 
             self._compute_dudv(dFdv, dudv)
 
-            if self._property['is_missing_dudm']:
+            if self._property['is_expired_dudm']:
                 self._compute_dudm()
+
+            lhs = self._assembled['dFdu']
+            assert lhs is not None
 
             for i, dudv_i in enumerate(dudv):
                 for j, dudm_j in enumerate(self._dudm):
 
-                    if is_actionable_d2Fdu2:
-                        action_action_d2Fdu2_dudv_i_dudm_j = \
-                            action(action(self._d2Fdu2, dudv_i), dudm_j)
-                    else:
-                        action_action_d2Fdu2_dudv_i_dudm_j = 0
+                    rhs = -assemble(d2Fdmdv[i][j] + action(action(self._d2Fdu2, dudv_i), dudm_j))
 
-                    rhs = - (
-                        assemble(d2Fdmdv[i][j]
-                            + action_action_d2Fdu2_dudv_i_dudm_j)
-                        + assemble(self._d2Fdudm[j])*(dudv_i.vector())
-                        + assemble(d2Fdudv[i])*(dudm_j.vector()))
+                    try: rhs -= assemble(action(self._d2Fdudm[j], dudv_i))
+                    except: pass # `action(self._d2Fdudm[j], dudv_i)` is zero
+                    try: rhs -= assemble(action(d2Fdudv[i], dudm_j))
+                    except: pass # `action(d2Fdudv[i], dudm_j)` is zero
 
                     rhs[self._bcs_dof] = 0.0
 
-                    self._linear_solver.solve(
-                        self._dFdu_mtx, d2udmdv[i][j].vector(), rhs)
+                    self._linear_solver.solve(lhs, d2udmdv[i][j].vector(), rhs)
 
         return compute_dudv_d2udmdv, dudv, d2udmdv
 
@@ -495,17 +694,17 @@ class InverseSolverBasic:
         Notes
         -----
         The adjoint method requires one solve for any number of model parameters:
-            solve(adjoint(self._dFdu) == -self._dJdu, self._z, bcs=self._bcs_zro)
+            solve(adjoint(self._dFdu) == self._dJdu, self._z, bcs=self._bcs_zro)
 
         '''
 
         DJDm = np.zeros((self._n,), float)
 
-        if self._property['is_missing_z']:
+        if self._property['is_expired_z']:
             self._compute_z()
 
-        for i, (dJdm_i, dFdm_i) in enumerate(zip(self._dJdm, self._dFdm)):
-            DJDm[i] += assemble(dJdm_i) + assemble(dFdm_i).inner(self._z.vector())
+        for i, (assembled_dJdm_i, dFdm_i) in enumerate(zip(self._assemble_dJdm(), self._dFdm)):
+            DJDm[i] += assembled_dJdm_i - assemble(dFdm_i).inner(self._z.vector())
 
         return DJDm
 
@@ -522,13 +721,15 @@ class InverseSolverBasic:
         '''
 
         DJDm = np.zeros((self._n,), float)
-        assembled_dJdu = assemble(self._dJdu)
 
-        if self._property['is_missing_dudm']:
+        assembled_dJdu = self._assemble_dJdu()
+        assembled_dJdm = self._assemble_dJdm()
+
+        if self._property['is_expired_dudm']:
             self._compute_dudm()
 
-        for i, (dJdm_i, dudm_i) in enumerate(zip(self._dJdm, self._dudm)):
-            DJDm[i] += assemble(dJdm_i) + assembled_dJdu.inner(dudm_i.vector())
+        for i, (assembled_dJdm_i, dudm_i) in enumerate(zip(assembled_dJdm, self._dudm)):
+            DJDm[i] += assembled_dJdm_i + assembled_dJdu.inner(dudm_i.vector())
 
         return DJDm
 
@@ -540,46 +741,40 @@ class InverseSolverBasic:
         DJDm = np.zeros((self._n,), float)
         D2JDm2 = np.zeros((self._n, self._n), float)
 
-        assembled_dJdu = assemble(self._dJdu)
-        assembled_d2Jdu2 = assemble(self._d2Jdu2)
+        assembled_dJdu = self._assemble_dJdu()
+        assembled_dJdm = self._assemble_dJdm()
 
-        if self._property['is_missing_dudm']:
+        assembled_d2Jdm2  = self._assemble_d2Jdm2()
+        assembled_d2Jdudm = self._assemble_d2Jdudm()
+
+        if self._property['is_expired_dudm']:
             self._compute_dudm()
 
-        if self._property['is_missing_z']:
+        if self._property['is_expired_z']:
             self._compute_z()
 
-        is_actionable_d2Fdu2 = self._is_actionable_d2Fdu2
+        for i, (assembled_d2Jdudm_i, assembled_dJdm_i, d2Fdudm_i, dudm_i) in enumerate(
+                zip(assembled_d2Jdudm, assembled_dJdm, self._d2Fdudm, self._dudm)):
 
-        for i, (d2Jdudm_i, d2Fdudm_i, dJdm_i, dFdm_i, dudm_i) in enumerate(
-          zip(self._d2Jdudm, self._d2Fdudm, self._dJdm, self._dFdm, self._dudm)):
+            DJDm[i] = assembled_dJdm_i + assembled_dJdu.inner(dudm_i.vector())
 
-            # DJDm[i] = assemble(dJdm_i + action(self._dJdu, dudm_i)) # Can fail
-            DJDm[i] = assemble(dJdm_i) + assembled_dJdu.inner(dudm_i.vector())
-
-            for j, (d2Jdm2_ij, d2Fdm2_ij, d2Jdudm_j, d2Fdudm_j, dudm_j) in \
-              enumerate(zip(self._d2Jdm2[i], self._d2Fdm2[i], self._d2Jdudm[i:],
-              self._d2Fdudm[i:], self._dudm[i:]), start=i):
+            for j, (assembled_d2Jdm2_ij, assembled_d2Jdudm_j, d2Fdm2_ij, d2Fdudm_j, dudm_j) in enumerate(
+              zip(assembled_d2Jdm2[i], assembled_d2Jdudm[i:], self._d2Fdm2[i], self._d2Fdudm[i:], self._dudm[i:]),
+              start=i):
 
                 D2JDm2[i,j] = (
-                    assemble(d2Jdm2_ij)
-                    + (assembled_d2Jdu2*dudm_j.vector()).inner(dudm_i.vector())
-                    + assemble(d2Jdudm_j).inner(dudm_i.vector())
-                    + assemble(d2Jdudm_i).inner(dudm_j.vector())
+                    assembled_d2Jdm2_ij
+                    + self._assemble_action_d2Jdu2(dudm_j, dudm_i)
+                    + assembled_d2Jdudm_j.inner(dudm_i.vector())
+                    + assembled_d2Jdudm_i.inner(dudm_j.vector())
                     )
 
-                if is_actionable_d2Fdu2:
-                    action_action_d2Fdu2_dudm_j_dudm_i = \
-                        action(action(self._d2Fdu2, dudm_j), dudm_i)
-                else:
-                    action_action_d2Fdu2_dudm_j_dudm_i = 0
+                D2JDm2[i,j] -= assemble(d2Fdm2_ij + action(action(self._d2Fdu2, dudm_j), dudm_i)).inner(self._z.vector())
 
-                D2JDm2[i,j] += (
-                    assemble(d2Fdm2_ij
-                        + action_action_d2Fdu2_dudm_j_dudm_i)
-                    + assemble(d2Fdudm_j)*(dudm_i.vector())
-                    + assemble(d2Fdudm_i)*(dudm_j.vector())
-                    ).inner(self._z.vector())
+                try: D2JDm2[i,j] -= assemble(action(d2Fdudm_j, dudm_i)).inner(self._z.vector())
+                except: pass # `action(d2Fdudm_j, dudm_i)` is zero
+                try: D2JDm2[i,j] -= assemble(action(d2Fdudm_i, dudm_j)).inner(self._z.vector())
+                except: pass # `action(d2Fdudm_i, dudm_j)` is zero
 
             for j in range(i+1, self._n):
                 D2JDm2[j,i] = D2JDm2[i,j]
@@ -594,30 +789,33 @@ class InverseSolverBasic:
         DJDm = np.zeros((self._n,), float)
         D2JDm2 = np.zeros((self._n, self._n), float)
 
-        assembled_dJdu = assemble(self._dJdu)
-        assembled_d2Jdu2 = assemble(self._d2Jdu2)
+        assembled_dJdu = self._assemble_dJdu()
+        assembled_dJdm = self._assemble_dJdm()
 
-        if self._property['is_missing_dudm']:
+        assembled_d2Jdm2  = self._assemble_d2Jdm2()
+        assembled_d2Jdudm = self._assemble_d2Jdudm()
+
+        if self._property['is_expired_dudm']:
             self._compute_dudm()
 
-        if self._property['is_missing_d2udm2']:
+        if self._property['is_expired_d2udm2']:
             self._compute_d2udm2()
 
-        for i, (d2Jdudm_i, dJdm_i, dudm_i) in enumerate(
-          zip(self._d2Jdudm, self._dJdm, self._dudm)):
+        for i, (assembled_d2Jdudm_i, assembled_dJdm_i, dudm_i) in enumerate(
+                zip(assembled_d2Jdudm, assembled_dJdm, self._dudm)):
 
-            # DJDm[i] = assemble(dJdm_i + action(self._dJdu, dudm_i)) # Can fail
-            DJDm[i] = assemble(dJdm_i) + assembled_dJdu.inner(dudm_i.vector())
+            DJDm[i] = assembled_dJdm_i + assembled_dJdu.inner(dudm_i.vector())
 
-            for j, (d2Jdm2_ij, d2udm2_ij, d2Jdudm_j, dudm_j) in enumerate(
-              zip(self._d2Jdm2[i], self._d2udm2[i], self._d2Jdudm[i:], self._dudm[i:]),
+            for j, (assembled_d2Jdm2_ij, assembled_d2Jdudm_j, d2udm2_ij, dudm_j) in enumerate(
+              zip(assembled_d2Jdm2[i], assembled_d2Jdudm[i:], self._d2udm2[i], self._dudm[i:]),
               start=i):
 
                 D2JDm2[i,j] = (
-                    assemble(d2Jdm2_ij)
-                    + (assembled_d2Jdu2*dudm_j.vector()).inner(dudm_i.vector())
-                    + assemble(d2Jdudm_j).inner(dudm_i.vector())
-                    + assemble(d2Jdudm_i).inner(dudm_j.vector()))
+                    assembled_d2Jdm2_ij
+                    + self._assemble_action_d2Jdu2(dudm_j, dudm_i)
+                    + assembled_d2Jdudm_j.inner(dudm_i.vector())
+                    + assembled_d2Jdudm_i.inner(dudm_j.vector())
+                    )
 
                 D2JDm2[i,j] += assembled_dJdu.inner(d2udm2_ij.vector())
 
@@ -974,7 +1172,7 @@ class InverseSolverBasic:
         if self.require_nonlinear_solution(t):
             self.solve_nonlinear_problem(t)
 
-        return assemble(self._J)
+        return self._assemble_J()
 
 
     def observe_DJDm(self, t=None):
@@ -1004,7 +1202,7 @@ class InverseSolverBasic:
         if self.require_nonlinear_solution(t):
             self.solve_nonlinear_problem(t)
 
-        if self._property['is_missing_dudm']:
+        if self._property['is_expired_dudm']:
             self._compute_dudm()
 
         return [dudm_i.copy(True) for dudm_i in self._dudm] \
@@ -1019,7 +1217,7 @@ class InverseSolverBasic:
         if self.require_nonlinear_solution(t):
             self.solve_nonlinear_problem(t)
 
-        if self._property['is_missing_d2udm2']:
+        if self._property['is_expired_d2udm2']:
             self._compute_d2udm2()
 
         if copy:
@@ -1160,8 +1358,7 @@ class InverseSolver(InverseSolverBasic):
         return self
 
 
-    def __init__(self, inverse_solver_basic,
-        u_obs, u_msr, dx_msr, T_obs, T_msr, ds_msr):
+    def __init__(self, inverse_solver_basic, u_obs, u_msr, dx_msr, T_obs, T_msr, ds_msr):
         '''Initialize inverse solver.
 
         Parameters
@@ -1223,8 +1420,9 @@ class InverseSolver(InverseSolverBasic):
             for fj_obs_i in f_obs_i) for f_obs_i in self._f_obs)
 
         # Model parameter sensitivities wrt themselves
-        self.observe_dmdm = self.apply_observation_caching(
-                            self.factory_observe_dmdm())
+        self.observe_dmdm = self.apply_observation_caching(self.factory_observe_dmdm())
+
+        # self.observe_dmdm = lambda args, **kwargs: -np.identity(self._n)
 
         def raise_method_undefined_error(*args, **kwargs):
             raise RuntimeError('Method `observe_dmdu_msr` has not been defined; '
@@ -1383,7 +1581,7 @@ class InverseSolver(InverseSolverBasic):
         for t in observation_times:
 
             self.update_nonlinear_solution(t)
-            cost_values.append(assemble(self._J))
+            cost_values.append(self._assemble_J())
 
             if compute_gradients:
                 cost_gradients.append(compute_DJDm())
@@ -1801,8 +1999,14 @@ class InverseSolver(InverseSolverBasic):
 
         if is_type_constant:
 
-            if not_ignore_dFdv: dFdv = []
-            if not_ignore_dJdv: dJdv = []
+            if not_ignore_dFdv:
+                dFdv = []
+
+            if not_ignore_dJdv:
+                if self._Q is not None:
+                    dQdv = []
+                if self._L is not None:
+                    dLdv = []
 
             slices = []
             posnxt = 0
@@ -1822,49 +2026,87 @@ class InverseSolver(InverseSolverBasic):
                 if dim > 1:
                     for j in range(dim):
 
-                        dv_i = [0.0]*dim
-                        dv_i[j] = 1.0
-                        dv_i = Constant(dv_i)
+                        vh_i = [0.0,]*dim
+                        vh_i[j] = 1.0
+                        vh_i = Constant(vh_i)
 
-                        if not_ignore_dFdv: dFdv.append(derivative(self._F, v_i, dv_i))
-                        if not_ignore_dJdv: dJdv.append(derivative(self._J, v_i, dv_i))
+                        if not_ignore_dFdv:
+                            dFdv.append(derivative(self._F, v_i, vh_i))
+                        if not_ignore_dJdv:
+                            if self._Q is not None:
+                                dQdv.append(derivative(self._Q, v_i, vh_i))
+                            if self._L is not None:
+                                dLdv.append(derivative(self._L, v_i, vh_i))
 
                 else:
-                    if not_ignore_dFdv: dFdv.append(diff(self._F, v_i))
-                    if not_ignore_dJdv: dJdv.append(diff(self._J, v_i))
+
+                    if not_ignore_dFdv:
+                        dFdv.append(diff(self._F, v_i))
+                    if not_ignore_dJdv:
+                        if self._Q is not None:
+                            dQdv.append(diff(self._Q, v_i))
+                        if self._L is not None:
+                            dLdv.append(diff(self._L, v_i))
 
             if not_ignore_dFdv:
+
                 compute_dudv_d2udmdv, dudv, d2udmdv = \
                     self._factory_compute_dudv_d2udmdv(dFdv)
 
             if not_ignore_dJdv:
-                d2Jdudv = [derivative(dJdv_i, self._u) for dJdv_i in dJdv]
-                d2Jdmdv = [[diff(dJdv_i, m_j) for m_j in self._m] for dJdv_i in dJdv]
 
+                if self._Q is not None:
+                    d2Qdudv = [derivative(dQdv_k, self._u) for dQdv_k in dQdv]
+                    d2Qdmdv = [[diff(dQdv_k, m_j) for m_j in self._m] for dQdv_k in dQdv]
 
-            def compute_dDJDmdv(i, assembled_dJdu, assembled_d2Jdu2, assemble_d2Jdudm):
+                if self._L is not None:
+                    d2Ldudv = [derivative(dLdv_k, self._u) for dLdv_k in dLdv]
+                    d2Ldmdv = [[diff(dLdv_k, m_j) for m_j in self._m] for dLdv_k in dLdv]
 
-                slc = slices[i]; dim = slc.stop - slc.start
-                dDJDmdv_i = np.zeros((self._n, dim), float)
+            def assemble_d2Jdudv(k):
+                d2Jdudv_k = 0.0
+                if self._Q is not None:
+                    d2Jdudv_k = assemble(d2Qdudv[k])
+                if self._L is not None:
+                    d2Jdudv_k += self._assemble_dLdu()*assemble(dLdv[k]) \
+                                 + assemble(d2Ldudv[k])*self._assemble_L()
+                return d2Jdudv_k # -> vector
+
+            def assemble_d2Jdmdv(k, j_m):
+                d2Jdmdv_kj = 0.0
+                if self._Q is not None:
+                    d2Jdmdv_kj = assemble(d2Qdmdv[k][j_m])
+                if self._L is not None:
+                    d2Jdmdv_kj += self._assemble_dLdm()[j_m]*assemble(dLdv[k]) \
+                                  + assemble(d2Ldmdv[k][j_m])*self._assemble_L()
+                return d2Jdmdv_kj # -> float
+
+            def assemble_dDJDmdv(i):
+
+                slice_i = slices[i];
+                dims_i = slice_i.stop - slice_i.start
+                dDJDmdv_i = np.zeros((self._n, dims_i), float)
 
                 if not_ignore_dJdv:
 
-                    for j, dudm_j in enumerate(self._dudm):
-                        for k, (d2Jdudv_ik, d2Jdmdv_ik) in \
-                          enumerate(zip(d2Jdudv[slc], d2Jdmdv[slc])):
+                    for j_m, dudm_j in enumerate(self._dudm):
+                        for k_dim, k_v in enumerate(range(slice_i.start, slice_i.stop)):
 
-                            dDJDmdv_i[j,k] += assemble(d2Jdmdv_ik[j]) + \
-                                              assemble(d2Jdudv_ik).inner(dudm_j.vector())
+                            dDJDmdv_i[j_m, k_dim] = assemble_d2Jdmdv(k_v, j_m) \
+                                + assemble_d2Jdudv(k_v).inner(dudm_j.vector())
 
                 if not_ignore_dFdv:
 
-                    for j, dudm_j in enumerate(self._dudm):
-                        for k, (dudv_ik, d2udmdv_ik) in \
-                          enumerate(zip(dudv[slc], d2udmdv[slc])):
+                    assembled_dJdu = self._assemble_dJdu()
+                    assembled_d2Jdudm = self._assemble_d2Jdudm()
 
-                            dDJDmdv_i[j,k] += assembled_dJdu.inner(d2udmdv_ik[j].vector()) + \
-                                              assemble_d2Jdudm[j].inner(dudv_ik.vector()) + \
-                                              (assembled_d2Jdu2*dudv_ik.vector()).inner(dudm_j.vector())
+                    for j_m, dudm_j in enumerate(self._dudm):
+                        for k_dim, k_v in enumerate(range(slice_i.start, slice_i.stop)):
+
+                            dDJDmdv_i[j_m, k_dim] += \
+                                assembled_dJdu.inner(d2udmdv[k_v][j_m].vector()) \
+                                + assembled_d2Jdudm[j_m].inner(dudv[k_v].vector()) \
+                                + self._assemble_action_d2Jdu2(dudm_j, dudv[k_v])
 
                 return dDJDmdv_i # -> 2D array
 
@@ -1877,16 +2119,44 @@ class InverseSolver(InverseSolverBasic):
 
             assert not_ignore_dJdv
 
-            dJdv    = [derivative(self._J, v_i) for v_i in v]
-            d2Jdudv = [derivative(dJdv_i, self._u) for dJdv_i in dJdv]
-            d2Jdmdv = [[diff(dJdv_i, m_j) for m_j in self._m] for dJdv_i in dJdv]
+            if self._Q is not None:
+                dQdv    = [derivative(self._Q, v_i) for v_i in v]
+                d2Qdudv = [derivative(dQdv_i, self._u) for dQdv_i in dQdv] # NOTE: `u` is second argument
+                d2Qdmdv = [[diff(dQdv_i, m_j) for m_j in self._m] for dQdv_i in dQdv]
 
-            def compute_dDJDmdv(i, _1, _2, _3):
+            if self._L is not None:
+                dLdv    = [derivative(self._L, v_i) for v_i in v]
+                d2Ldudv = [derivative(dLdv_i, self._u) for dLdv_i in dLdv] # NOTE: `u` is second argument
+                d2Ldmdv = [[diff(dLdv_i, m_j) for m_j in self._m] for dLdv_i in dLdv]
+
+            def assemble_d2Jdudv(i):
+                # IMPORTANT: `v_i` must be first argument, `u` must be second argument
+                d2Jdudv_i = 0.0
+                if self._Q is not None:
+                    d2Jdudv_i = assemble(d2Qdudv[i]).array()
+                if self._L is not None:
+                    d2Jdudv_i += np.outer(assemble(dLdv[i]).get_local(),
+                                          self._assemble_dLdu().get_local()) \
+                                 + assemble(d2Ldudv[i]).array()*self._assemble_L()
+                return d2Jdudv_i # -> 2D array
+
+            def assemble_d2Jdmdv(i, j_m):
+                d2Jdmdv_ij = 0.0
+                if self._Q is not None:
+                    d2Jdmdv_ij = assemble(d2Qdmdv[i][j_m]).get_local()
+                if self._L is not None:
+                    d2Jdmdv_ij += assemble(dLdv[i]).get_local()*self._assemble_dLdm()[j_m] \
+                                  + assemble(d2Ldmdv[i][j_m]).get_local()*self._assemble_L()
+                return d2Jdmdv_ij # -> 1D array
+
+            def assemble_dDJDmdv(i):
 
                 dDJDmdv_i = np.zeros((self._n, v[i].vector().size()), float)
+                assembled_d2Jdudv_i = assemble_d2Jdudv(i)
 
-                for dDJDmdv_ij, d2Jdmdv_ij, dudm_j in zip(dDJDmdv_i, d2Jdmdv[i], self._dudm):
-                    dDJDmdv_ij += assemble(d2Jdmdv_ij) + assemble(d2Jdudv[i])*dudm_j.vector()
+                for j_m, dudm_j in enumerate(self._dudm):
+                    dDJDmdv_i[j_m,:] += assemble_d2Jdmdv(i, j_m) \
+                        + assembled_d2Jdudv_i.dot(dudm_j.vector().get_local())
 
                 return dDJDmdv_i # -> 2D array
 
@@ -1920,7 +2190,6 @@ class InverseSolver(InverseSolverBasic):
 
             if t is None:
                 t = self._property['observation_time']
-
                 if t is None and self._property['cumsum_D2JDm2'] is None:
                     raise RuntimeError('Parameter `t` can not be `None`')
 
@@ -1935,35 +2204,23 @@ class InverseSolver(InverseSolverBasic):
                 D2JDm2 = self._property['cumsum_D2JDm2']
 
                 try: # Could be ill-conditioned
-                    inv_D2JDm2 = linalg.inv(-D2JDm2)
+                    inv_D2JDm2 = linalg.inv(D2JDm2)
                 except linalg.LinAlgError:
-                    inv_D2JDm2 = linalg.pinv(-D2JDm2)
+                    inv_D2JDm2 = linalg.pinv(D2JDm2)
 
             if self.require_nonlinear_solution(t):
                 self.update_nonlinear_solution(t)
 
-            if self._property['is_missing_dudm']:
+            if self._property['is_expired_dudm']:
                 self._compute_dudm()
 
             if not_ignore_dFdv:
                 compute_dudv_d2udmdv()
-                assembled_dJdu = assemble(self._dJdu)
-                assembled_d2Jdu2 = assemble(self._d2Jdu2)
-                assembled_d2Jdudm = [assemble(self._d2Jdudm[i_m])
-                                     for i_m in range(self._n)]
-            else:
-                assembled_dJdu = None
-                assembled_d2Jdu2 = None
-                assembled_d2Jdudm = None
 
             dmdv = []
 
             for i in range(len(v)):
-
-                D2JDmDv_i = compute_dDJDmdv(i, assembled_dJdu,
-                    assembled_d2Jdu2, assembled_d2Jdudm) # -> 2D array
-
-                dmdv.append(inv_D2JDm2.dot(D2JDmDv_i))
+                dmdv.append(inv_D2JDm2.dot(-assemble_dDJDmdv(i)))
 
             return dmdv
 
@@ -2748,3 +3005,14 @@ class InverseSolver(InverseSolverBasic):
     def _compute_orthogonalizing_operator(sequence_of_vectors):
         C = np.array(sequence_of_vectors, dtype=float, copy=False, ndmin=2)
         return np.identity(len(C.T)) - C.T.dot(linalg.inv(C.dot(C.T)).dot(C))
+
+
+
+def partial_derivative_wrt_vector_constant(f, v):
+
+    shape = v_i.ufl_shape
+
+
+
+def partial_derivative_wrt_vector_function(f, v):
+    raise NotImplementedError

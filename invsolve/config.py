@@ -19,6 +19,7 @@ parameters_inverse_solver = {
     'relative_tolerance': 1e-6,
     'maximum_relative_change': None,
     'error_on_nonconvergence': False,
+    'is_symmetric_form_dFdu': False,
     }
 
 parameters_nonlinear_solver = {
