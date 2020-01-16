@@ -1,6 +1,7 @@
 
 .*
 *.pyc
+*.out
 
 __pycache__
 /test_*.py
@@ -9,7 +10,7 @@ test_*
 archive/
 docs/
 notes/
-results/
+results*/
 results (backup)/
 
 !.gitignore

@@ -46,6 +46,9 @@ logger.setLevel(logging.INFO)
 
 ### Problem parameters
 
+FORCE_COST_FORMULATION_METHOD = "cost"
+# FORCE_COST_FORMULATION_METHOD = "constraint"
+
 NUM_OBSERVATIONS = 4
 
 SMALL_DISPLACEMENTS = True
@@ -74,6 +77,7 @@ parameters_inverse_solver = {
     'relative_tolerance': 1e-6,
     'maximum_relative_change': None,
     'error_on_nonconvergence': False,
+    'is_symmetric_form_dFdu': True,
     }
 
 
@@ -221,6 +225,22 @@ V = dolfin.VectorFunctionSpace(mesh, 'CG', FINITE_ELEMENT_DEGREE)
 u = Function(V)
 
 
+### Dirichlet boundary conditions
+
+bcs = []
+
+Vx, Vy, Vz = V.split()
+
+zero  = Constant(0)
+zeros = Constant((0,0,0))
+
+bcs.append(DirichletBC(Vx, zero, boundary_markers, id_subdomain_fix_u))
+bcs.append(DirichletBC(Vx, uxD_msr, boundary_markers, id_subdomain_msr_T))
+
+bcs.append(DirichletBC(V, zeros, fixed_vertex_000, "pointwise"))
+bcs.append(DirichletBC(Vz, zero, fixed_vertex_010, "pointwise"))
+
+
 ### Define hyperelastic material model
 
 material_parameters = {'E': Constant(E_target*0.5),
@@ -244,12 +264,6 @@ mu = E/(2.0 + 2.0*nu)
 # Energy density of a Neo-Hookean material model
 psi = (mu/2.0) * (I1 - d - 2.0*dolfin.ln(J)) + (lm/2.0) * dolfin.ln(J) ** 2
 
-# Potential energy
-Pi = psi*dx # NOTE: There is no external force potential
-
-
-### Stress measures
-
 # First Piola-Kirchhoff
 pk1 = dolfin.diff(psi, F)
 
@@ -257,21 +271,11 @@ pk1 = dolfin.diff(psi, F)
 N = dolfin.FacetNormal(mesh)
 PN = dolfin.dot(pk1, N)
 
+# Potential energy
+Pi = psi*dx # NOTE: There is no external force potential
 
-### Dirichlet boundary conditions
-
-bcs = []
-
-Vx, Vy, Vz = V.split()
-
-zero  = Constant(0)
-zeros = Constant((0,0,0))
-
-bcs.append(DirichletBC(Vx, zero, boundary_markers, id_subdomain_fix_u))
-bcs.append(DirichletBC(Vx, uxD_msr, boundary_markers, id_subdomain_msr_T))
-
-bcs.append(DirichletBC(V, zeros, fixed_vertex_000, "pointwise"))
-bcs.append(DirichletBC(Vz, zero, fixed_vertex_010, "pointwise"))
+# Equilibrium problem
+F = dolfin.derivative(Pi, u)
 
 
 ### Model cost and constraints
@@ -298,32 +302,41 @@ J_u = sum((u_obs[i]-u_msr_noisy[i])**2 * ds_msr_u
 C = [(T_obs[i]-T_msr_noisy[i]) * ds_msr_T
      for i in using_subdims_T_msr]
 
-constraint_multipliers = [Constant(1e-9) for _ in using_subdims_T_msr]
-J_c = sum(mult_i*C_i for mult_i, C_i in zip(constraint_multipliers, C))
+if FORCE_COST_FORMULATION_METHOD == "cost":
 
-# Model cost
-J = J_u + J_c
+    constraint_multipliers = []
+
+    Q = J_u
+    L = C[0]
+
+    # NOTE: The final objective to be minimized will effectively be like:
+    # J = Q + 0.5*L*L
+
+elif  FORCE_COST_FORMULATION_METHOD == "constraint":
+
+    constraint_multipliers = [Constant(1e-9) for _ in using_subdims_T_msr]
+    J_c = sum(mult_i*C_i for mult_i, C_i in zip(constraint_multipliers, C))
+
+    Q = J_u + J_c
+    L = None
+
+else:
+    raise ValueError('Parameter `FORCE_COST_FORMULATION_METHOD ')
 
 
 ### Inverse problem
 
-observation_times = range(0, NUM_OBSERVATIONS)
-
-# Model parameters to be optimized
 model_parameters = [material_parameters]
 model_parameters.append(constraint_multipliers)
+observation_times = range(0, NUM_OBSERVATIONS)
 
-# Variational problem for static-equilibrium
-F = dolfin.derivative(Pi, u)
-
-inverse_solver_basic = invsolve.InverseSolverBasic(J, F, u, bcs,
-    model_parameters, observation_times, measurement_setter,
-    parameters_inverse_solver)
+inverse_solver_basic = invsolve.InverseSolverBasic(Q, L, F, u, bcs,
+    model_parameters, observation_times, measurement_setter)
 
 inverse_solver = invsolve.InverseSolver(inverse_solver_basic,
     u_obs, u_msr, ds_msr_u, T_obs, T_msr, ds_msr_T)
 
-num_model_parameters = inverse_solver.num_model_parameters
+inverse_solver.set_parameters_inverse_solver(parameters_inverse_solver)
 
 
 ### Solve inverse problem
@@ -452,9 +465,8 @@ model_parameter_names = list(material_parameters.keys())
 if len(constraint_multipliers) > 1:
     model_parameter_names.extend([f'constraint_multiplier_{i}'
         for i in range(1, len(constraint_multipliers)+1)])
-else:
+elif len(constraint_multipliers) == 1:
     model_parameter_names.append('constraint_multiplier')
-
 
 def plot_everything():
 
@@ -572,7 +584,7 @@ if __name__ == '__main__':
         _dmdm_predicted, _dmdm_expected = inverse_solver \
             .test_model_parameter_sensitivity_dmdm()
 
-        if np.allclose(_dmdm_predicted, _dmdm_expected, atol=1e-6):
+        if np.allclose(_dmdm_predicted, _dmdm_expected, atol=1e-4):
             logger.info('Model parameter self-sensitivity test [PASSED]')
         else:
             logger.error('Model parameter self-sensitivity test [FAILED]')

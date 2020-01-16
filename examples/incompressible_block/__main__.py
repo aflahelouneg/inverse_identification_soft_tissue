@@ -63,6 +63,7 @@ PARAMETERS_INVERSE_SOLVER = {
     'relative_tolerance': 1e-5,
     'maximum_relative_change': None,
     'error_on_nonconvergence': False,
+    'is_symmetric_form_dFdu': False,
     }
 
 PARAMETERS_NONLINEAR_SOLVER = {
@@ -216,6 +217,25 @@ u, p = dolfin.split(w)
 v, q = dolfin.TestFunctions(V)
 
 
+### Dirichlet boundary conditions
+
+bcs = []
+
+V_u, V_p = V.split()
+V_ux, V_uy, V_uz = V_u.split()
+
+zero  = Constant(0)
+zeros = Constant((0,0,0))
+
+# # Zero displacement BCs
+bcs.append(DirichletBC(V_u, zeros, boundary_markers, id_subdomain_fix))
+
+# Zero horizontal displacement BCs
+# bcs.append(DirichletBC(V_ux, zero, boundary_markers, id_subdomain_fix))
+# bcs.append(DirichletBC(V_u, zeros, fixed_vertex_000, "pointwise"))
+# bcs.append(DirichletBC(V_uz, zero, fixed_vertex_010, "pointwise"))
+
+
 ### Hyperelastic material model
 
 mu = Constant(1.0)
@@ -257,26 +277,7 @@ dC = dolfin.derivative(-p*(J-1.0)*dx, w) # Incompressibility equation
 dPi_w = dU - dW + dC
 
 
-### Dirichlet boundary conditions
-
-bcs = []
-
-V_u, V_p = V.split()
-V_ux, V_uy, V_uz = V_u.split()
-
-zero  = Constant(0)
-zeros = Constant((0,0,0))
-
-# # Zero displacement BCs
-bcs.append(DirichletBC(V_u, zeros, boundary_markers, id_subdomain_fix))
-
-# Zero horizontal displacement BCs
-# bcs.append(DirichletBC(V_ux, zero, boundary_markers, id_subdomain_fix))
-# bcs.append(DirichletBC(V_u, zeros, fixed_vertex_000, "pointwise"))
-# bcs.append(DirichletBC(V_uz, zero, fixed_vertex_010, "pointwise"))
-
-
-### Model cost and constraints
+### Model cost
 
 u_obs = u  # Observed displacement
 T_obs = PN # Observed tractions
@@ -288,11 +289,10 @@ cost = sum((u_obs[i]-u_msr[i])**2*ds_msr_u for i in using_subdims_u_msr)
 ### Inverse problem
 
 material_parameters = {'mu': mu}
+model_parameters = [material_parameters]
 
-model_parameters = [material_parameters] # To be optimized
-
-inverse_solver_basic = invsolve.InverseSolverBasic(cost, dPi_w, w, bcs,
-    model_parameters, observation_times, measurement_setter)
+inverse_solver_basic = invsolve.InverseSolverBasic(cost, None, dPi_w,
+    w, bcs, model_parameters, observation_times, measurement_setter)
 
 inverse_solver = invsolve.InverseSolver(inverse_solver_basic,
     u_obs, u_msr, ds_msr_u, T_obs, T_msr, ds_msr_T)
