@@ -289,7 +289,8 @@ class InverseSolverBasic:
 
     def _assemble_action_d2Qdu2(self, v1, v2):
         '''Avoid explicitly assembling `self._d2Qdu2`.'''
-        return assemble(action(action(self._d2Qdu2, v1), v2))
+        try: return assemble(action(action(self._d2Qdu2, v1), v2))
+        except IndexError: return 0.0
 
     def _assemble_dQdm(self):
         dQdm = self._assembled['dQdm']
@@ -331,7 +332,8 @@ class InverseSolverBasic:
 
     def _assemble_action_d2Ldu2(self, v1, v2):
         '''Avoid explicitly assembling `self._d2Ldu2`.'''
-        return assemble(action(action(self._d2Ldu2, v1), v2))
+        try: return assemble(action(action(self._d2Ldu2, v1), v2))
+        except IndexError: return 0.0
 
     def _assemble_dLdm(self):
         dLdm = self._assembled['dLdm']
@@ -619,9 +621,9 @@ class InverseSolverBasic:
                 rhs = -assemble(self._d2Fdm2[i][j-i] + action(action(self._d2Fdu2, dudm_j), dudm_i))
 
                 try: rhs -= assemble(action(self._d2Fdudm[j], dudm_i))
-                except: pass # `action(self._d2Fdudm[j], dudm_i)` is zero
+                except IndexError: pass # The action is zero
                 try: rhs -= assemble(action(self._d2Fdudm[i], dudm_j))
-                except: pass # `action(self._d2Fdudm[i], dudm_j)` is zero
+                except IndexError: pass # The action is zero
 
                 rhs[self._bcs_dof] = 0.0
 
@@ -676,9 +678,9 @@ class InverseSolverBasic:
                     rhs = -assemble(d2Fdmdv[i][j] + action(action(self._d2Fdu2, dudv_i), dudm_j))
 
                     try: rhs -= assemble(action(self._d2Fdudm[j], dudv_i))
-                    except: pass # `action(self._d2Fdudm[j], dudv_i)` is zero
+                    except IndexError: pass # The action is zero
                     try: rhs -= assemble(action(d2Fdudv[i], dudm_j))
-                    except: pass # `action(d2Fdudv[i], dudm_j)` is zero
+                    except IndexError: pass # The action is zero
 
                     rhs[self._bcs_dof] = 0.0
 
@@ -772,9 +774,9 @@ class InverseSolverBasic:
                 D2JDm2[i,j] -= assemble(d2Fdm2_ij + action(action(self._d2Fdu2, dudm_j), dudm_i)).inner(self._z.vector())
 
                 try: D2JDm2[i,j] -= assemble(action(d2Fdudm_j, dudm_i)).inner(self._z.vector())
-                except: pass # `action(d2Fdudm_j, dudm_i)` is zero
+                except IndexError: pass # The action is zero
                 try: D2JDm2[i,j] -= assemble(action(d2Fdudm_i, dudm_j)).inner(self._z.vector())
-                except: pass # `action(d2Fdudm_i, dudm_j)` is zero
+                except IndexError: pass # The action is zero
 
             for j in range(i+1, self._n):
                 D2JDm2[j,i] = D2JDm2[i,j]
@@ -2129,35 +2131,44 @@ class InverseSolver(InverseSolverBasic):
                 d2Ldudv = [derivative(dLdv_i, self._u) for dLdv_i in dLdv] # NOTE: `u` is second argument
                 d2Ldmdv = [[diff(dLdv_i, m_j) for m_j in self._m] for dLdv_i in dLdv]
 
-            def assemble_d2Jdudv(i):
-                # IMPORTANT: `v_i` must be first argument, `u` must be second argument
-                d2Jdudv_i = 0.0
+            # def assemble_d2Jdudv(i):
+            #     # IMPORTANT: `v_i` must be first argument, `u` must be second argument
+            #     d2Jdudv_i = 0.0
+            #     if self._Q is not None:
+            #         # FIXME: This is waisting time and memory
+            #         d2Jdudv_i = assemble(d2Qdudv[i]).array()
+            #     if self._L is not None:
+            #         # FIXME: This is waisting time and memory
+            #         d2Jdudv_i += np.outer(assemble(dLdv[i]).get_local(), self._assemble_dLdu().get_local())
+            #         d2Jdudv_i += assemble(d2Ldudv[i]).array()*self._assemble_L()
+            #     return d2Jdudv_i # -> 2D array
+
+            def assemble_action_d2Jdudv_dudm(i, dudm_j):
+                '''Avoid explicitly assembling `d2Jdudv`.'''
+                d2Jdudv_i_inner_dudm_j = 0.0
                 if self._Q is not None:
-                    d2Jdudv_i = assemble(d2Qdudv[i]).array()
+                    try: d2Jdudv_i_inner_dudm_j += assemble(action(d2Qdudv[i], dudm_j))
+                    except IndexError: pass # The action is zero
                 if self._L is not None:
-                    d2Jdudv_i += np.outer(assemble(dLdv[i]).get_local(),
-                                          self._assemble_dLdu().get_local()) \
-                                 + assemble(d2Ldudv[i]).array()*self._assemble_L()
-                return d2Jdudv_i # -> 2D array
+                    d2Jdudv_i_inner_dudm_j += assemble(dLdv[i])*(self._assemble_dLdu().inner(dudm_j.vector()))
+                    try: d2Jdudv_i_inner_dudm_j += assemble(action(d2Ldudv[i], dudm_j))*self._assemble_L()
+                    except IndexError: pass # The action is zero
+                return d2Jdudv_i_inner_dudm_j
 
             def assemble_d2Jdmdv(i, j_m):
                 d2Jdmdv_ij = 0.0
                 if self._Q is not None:
-                    d2Jdmdv_ij = assemble(d2Qdmdv[i][j_m]).get_local()
+                    d2Jdmdv_ij = assemble(d2Qdmdv[i][j_m])
                 if self._L is not None:
-                    d2Jdmdv_ij += assemble(dLdv[i]).get_local()*self._assemble_dLdm()[j_m] \
-                                  + assemble(d2Ldmdv[i][j_m]).get_local()*self._assemble_L()
-                return d2Jdmdv_ij # -> 1D array
+                    d2Jdmdv_ij += assemble(dLdv[i])*self._assemble_dLdm()[j_m] \
+                                  + assemble(d2Ldmdv[i][j_m])*self._assemble_L()
+                return d2Jdmdv_ij # -> vector
 
             def assemble_dDJDmdv(i):
-
                 dDJDmdv_i = np.zeros((self._n, v[i].vector().size()), float)
-                assembled_d2Jdudv_i = assemble_d2Jdudv(i)
-
                 for j_m, dudm_j in enumerate(self._dudm):
-                    dDJDmdv_i[j_m,:] += assemble_d2Jdmdv(i, j_m) \
-                        + assembled_d2Jdudv_i.dot(dudm_j.vector().get_local())
-
+                    dDJDmdv_i[j_m,:] += (assemble_action_d2Jdudv_dudm(i, dudm_j)
+                                         + assemble_d2Jdmdv(i, j_m)).get_local()
                 return dDJDmdv_i # -> 2D array
 
         else:
@@ -2194,7 +2205,7 @@ class InverseSolver(InverseSolverBasic):
                     raise RuntimeError('Parameter `t` can not be `None`')
 
             if not self._property['is_converged']:
-                logger.warning('Inverse solver is not converged')
+                logger.info('Inverse solver is not converged')
 
             if self._property['cumsum_D2JDm2'] is None:
                 logger.info('Solving forward problem')
@@ -3005,14 +3016,3 @@ class InverseSolver(InverseSolverBasic):
     def _compute_orthogonalizing_operator(sequence_of_vectors):
         C = np.array(sequence_of_vectors, dtype=float, copy=False, ndmin=2)
         return np.identity(len(C.T)) - C.T.dot(linalg.inv(C.dot(C.T)).dot(C))
-
-
-
-def partial_derivative_wrt_vector_constant(f, v):
-
-    shape = v_i.ufl_shape
-
-
-
-def partial_derivative_wrt_vector_function(f, v):
-    raise NotImplementedError
