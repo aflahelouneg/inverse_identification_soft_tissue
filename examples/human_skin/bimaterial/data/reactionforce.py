@@ -150,7 +150,7 @@ if __name__ == "__main__":
         fh = plt.figure(figname)
         ah = fh.add_subplot(111)
 
-        ah.plot(ut_msr, 'k.', markerfacecolor='w', markersize=2)
+        ah.plot(ut_msr, 'k:')
 
         # ah.set_title(figname)
         ah.set_xlabel('Measurement snapshot (#)')
@@ -165,7 +165,7 @@ if __name__ == "__main__":
         fh = plt.figure(figname)
         ah = fh.add_subplot(111)
 
-        ah.plot(ft_msr, 'k.', markerfacecolor='w', markersize=2)
+        ah.plot(ft_msr, 'ko', markersize=1.0)
 
         # ah.set_title(figname)
         ah.set_xlabel('Measurement snapshot (#)')
@@ -179,10 +179,9 @@ if __name__ == "__main__":
         fh = plt.figure(figname)
         ah = fh.add_subplot(111)
 
-        ah.plot(ut_msr, ft_msr, 'k.', markerfacecolor='w', markersize=2)
-        ah.plot(ut_msr_flt, ft_msr_flt, 'r-', linewidth=1.5)
-        ah.plot(ut_msr_flt[0], ft_msr_flt[0], 'rs', markersize=4,
-            markerfacecolor='r', markeredgecolor='w') #
+        ah.plot(ut_msr, ft_msr, 'ko', markersize=1.0)
+        ah.plot(ut_msr_flt, ft_msr_flt, 'r-')
+        ah.plot(ut_msr_flt[0], ft_msr_flt[0], 'ws', markersize=4, markeredgecolor='r')
 
         # ah.set_title(figname)
         ah.set_xlabel('Pad displacement, $|u|$ (mm)')
