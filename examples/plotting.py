@@ -11,11 +11,6 @@ PLOTSPECS_LINE   = ['-',':','--','-.'] * (5*6//2)
 PLOTSPECS_COLOR  = ['b','r','k','m','c'] * (4*6//2)
 PLOTSPECS_MARKER = ['o','x','+','^','v','*'] * (4*5//2)
 
-PLOTSPECS_KWARGS = {'markerfacecolor': 'w',
-                    'markeredgewidth': 1.0,
-                    'markersize': 5.0,
-                    'linewidth': 1.0}
-
 AXIS_TICKLABEL_FORMAT_KWARGS = dict(style='sci', scilimits=(-3,4), axis='y')
 
 BARPLOT_HATCHING_PATTERNS = ['...', '+++', 'xxx', '///', '|||'] * (4*6//2)
@@ -88,9 +83,7 @@ def plot_measurement_points(xk:np.ndarray,
                    uk[:,0], uk[:,1],
                    np.sqrt((uk**2).sum(1)))
     else:
-        plt.scatter(xk[:,0], xk[:,1],
-                    s=PLOTSPECS_KWARGS['markersize'],
-                    c=PLOTSPECS_COLOR[0])
+        plt.scatter(xk[:,0], xk[:,1], c=PLOTSPECS_COLOR[0])
 
     ah.set_xlabel('x (mm)')
     ah.set_ylabel('y (mm)')
@@ -120,18 +113,17 @@ def plot_model_parameters_foreach(model_parameters_foreach,
     for i, m_i in enumerate(np.array(model_parameters_foreach, order='F').T):
         plotspecs = PLOTSPECS_COLOR[i] + PLOTSPECS_MARKER[i]
 
-        handles.extend(plt.plot(reference_times, m_i, plotspecs, **PLOTSPECS_KWARGS))
+        handles.extend(plt.plot(reference_times, m_i, plotspecs))
 
     if model_parameter_names is not None:
         labels.extend(model_parameter_names)
 
-    ah.set_xlabel('Observation time, $t$')
     ah.set_ylabel('Model parameter value, $m_i$')
+    ah.set_xlabel('Observation time, $t$')
+    ah.grid(True)
 
     if handles and labels:
         ah.legend(handles, labels)
-
-    # plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
 
@@ -146,11 +138,11 @@ def plot_model_parameters_forall(model_parameters_forall,
     if model_parameter_names is None:
         model_parameter_names = list(range(0, len(model_parameters_forall)))
 
+
     ah.bar(model_parameter_names, model_parameters_forall, edgecolor='k')
-
     ah.set_ylabel('Model parameter value, $m_i$')
-    # plt.tight_layout()
-
+    ah.grid(True, axis='y')
+    
     return fh, simplify_figure_name(figname)
 
 
@@ -165,23 +157,22 @@ def plot_model_cost(cost_values_final=None,
     if cost_values_initial is not None:
 
         if reference_times is None: reference_times = range(len(cost_values_initial))
-        lh.extend(plt.plot(reference_times, cost_values_initial, 'rx:', **PLOTSPECS_KWARGS))
+        lh.extend(plt.plot(reference_times, cost_values_initial, 'rx:'))
 
     if cost_values_final is not None:
 
         if reference_times is None: reference_times = range(len(cost_values_final))
-        lh.extend(plt.plot(reference_times, cost_values_final, 'bo-', **PLOTSPECS_KWARGS))
+        lh.extend(plt.plot(reference_times, cost_values_final, 'bo-'))
 
     # ah.set_title(figname)
     ah.ticklabel_format(**AXIS_TICKLABEL_FORMAT_KWARGS)
-    ah.set_xlabel('Observation time, $t$')
     ah.set_ylabel('Model cost, $J$')
+    ah.set_xlabel('Observation time, $t$')
+    ah.grid(True)
 
     if cost_values_final   is not None and \
        cost_values_initial is not None:
-        plt.legend(lh, ['initial', 'final'])
-
-    # plt.tight_layout()
+        ah.legend(lh, ['initial', 'final'])
 
     return fh, simplify_figure_name(figname)
 
@@ -199,16 +190,15 @@ def plot_cost_gradients(cost_gradients,
 
     for i, DJDm_i in enumerate(np.array(cost_gradients, order='F').T):
         plotspecs = PLOTSPECS_COLOR[i] + PLOTSPECS_MARKER[i] + PLOTSPECS_LINE[i]
-        lh.extend(plt.plot(reference_times, DJDm_i, plotspecs, **PLOTSPECS_KWARGS))
+        lh.extend(plt.plot(reference_times, DJDm_i, plotspecs))
 
-    ah.set_xlabel('Observation time, $t$')
-    ah.set_ylabel('Model cost derivative, $DJ/Dm_i$')
     ah.ticklabel_format(**AXIS_TICKLABEL_FORMAT_KWARGS)
+    ah.set_ylabel('Model cost derivative, $DJ/Dm_i$')
+    ah.set_xlabel('Observation time, $t$')
+    ah.grid(True)
 
     if lh and model_parameter_names is not None:
-        plt.legend(lh, model_parameter_names)
-
-    # plt.tight_layout()
+        ah.legend(lh, model_parameter_names)
 
     return fh, simplify_figure_name(figname)
 
@@ -224,13 +214,12 @@ def plot_observation_misfit(error_observation,
     if reference_times is None:
         reference_times = range(len(error_observation))
 
-    plt.plot(reference_times, error_observation, 'bo-', **PLOTSPECS_KWARGS)
+    plt.plot(reference_times, error_observation, 'bo-')
 
-    ah.set_xlabel('Observation time, $t$')
-    ah.set_ylabel(ylabel)
     ah.ticklabel_format(**AXIS_TICKLABEL_FORMAT_KWARGS)
-
-    # plt.tight_layout()
+    ah.set_ylabel(ylabel)
+    ah.set_xlabel('Observation time, $t$')
+    ah.grid(True)
 
     return fh, simplify_figure_name(figname)
 
@@ -248,15 +237,17 @@ def plot_reaction_force_vs_displacement(
     fh = plt.figure(figname); fh.clear()
     ah = fh.add_subplot(111); lh = []
 
-    lh.extend(plt.plot(u_msr, f_msr, 'rx:', **PLOTSPECS_KWARGS))
-    lh.extend(plt.plot(u_msr, f_obs, 'bo-', **PLOTSPECS_KWARGS))
+    lh.extend(plt.plot(u_msr, f_msr, 'rx:'))
+    lh.extend(plt.plot(u_msr, f_obs, 'bo-'))
+
+
+    ah.ticklabel_format(**AXIS_TICKLABEL_FORMAT_KWARGS)
+    ah.set_ylabel('Reaction force, $||f||$')
+    ah.set_xlabel('Displacement, $||u||$')
+    ah.legend(['measurement', 'observation'])
+    ah.grid(True)
 
     # ah.set_title(figname)
-    ah.set_xlabel('Displacement, $||u||$')
-    ah.set_ylabel('Reaction force, $||f||$')
-    ah.legend(['measurement', 'observation'])
-    ah.ticklabel_format(**AXIS_TICKLABEL_FORMAT_KWARGS)
-
     # plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
@@ -332,19 +323,17 @@ def plot_model_parameter_sensitivities(
     if model_parameter_names is not None:
         labels.extend(model_parameter_names)
 
-    ah.set_xticks(reference_times)
-    ah.set_xticklabels(reference_times)
-
-    ah.set_xlabel('Observation time, $t$')
     ah.set_ylabel(ylabel)
-
-    if title is not None:
-        ah.set_title(title)
+    ah.set_xlabel('Observation time, $t$')
+    ah.set_xticklabels(reference_times)
+    ah.set_xticks(reference_times)
+    ah.grid(True, axis='y')
 
     if handles and labels:
         ah.legend([h_i[0] for h_i in handles], labels)
 
-    # plt.tight_layout()
+    if title is not None:
+        ah.set_title(title)
 
     return fh, simplify_figure_name(figname)
 
@@ -375,8 +364,8 @@ def plot_scalar_field(function, figname=None, title=None):
     #     horizontalalignment='right',verticalalignment='bottom',
     #     bbox=dict(boxstyle="round", fc="w", ec="k", pad=0.3, alpha=0.75))
 
-    ah.set_xlabel('x (mm)')
     ah.set_ylabel('y (mm)')
+    ah.set_xlabel('x (mm)')
 
     if title is not None:
         ah.set_title(title)
