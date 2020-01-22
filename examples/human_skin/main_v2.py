@@ -62,23 +62,22 @@ MATERIAL_MODEL_NAMES = ["NeoHookean"]
 
 # PROBLEM_SUBCASE = "bimaterial"
 # MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
-# NOTE: Need to assign `NUMBER_OF_MODEL_PARAMETERS`
+# ONLY_SOLVE_KELOID_MODEL_PARAMETERS = False
 
 MESH_NAME_TAG = "3" # "1", "2", "3", "4", "5"
 
 MAXIMUM_OBSERVATIONS = 10
 # MAXIMUM_OBSERVATIONS = 3
 
-MAXIMUM_DISPLACEMENT = 3 # NOTE: # Maximum displacement is `4.112`
-# MAXIMUM_DISPLACEMENT = 4
-
 FIXED_EXTERNAL_BOUNDARY = False
-PENALIZE_MATERIAL_PARAMETERS = False
+MAXIMUM_DISPLACEMENT = 2.0 # 3.0 # NOTE: # Maximum displacement is `4.112`
+# MAXIMUM_DISPLACEMENT = 3.0
+# MAXIMUM_DISPLACEMENT = 4.0
 
 COMPUTE_INITIAL_COST = False
 COMPUTE_FINAL_COST = True
 
-COMPUTE_SENSITIVITIES = False
+COMPUTE_SENSITIVITIES = True
 COMPUTE_REACTION_FORCE = True
 COMPUTE_MISFIT_ERROR = True
 COMPUTE_MISFIT_FIELD = True
@@ -95,7 +94,7 @@ MESHLESS_DEGREE = 2 # (3 is ill-conditioned)
 MESHLESS_WEIGHT = "center" # "center", "uniform"
 
 PLOT_RESULTS = True
-SAVE_RESULTS = True
+SAVE_RESULTS = False
 
 SAVE_FIGURE_EXTENSIONS = ('.png', '.svg') # '.pdf'
 
@@ -104,12 +103,12 @@ if not (isinstance(MATERIAL_MODEL_NAMES, (list, tuple)) and \
     raise ValueError('Expected `MATERIAL_MODEL_NAMES` to be a sequence of `str`s.')
 
 RESULTS_DIRECTORY_PARENT = os.path.join(
-    "results", PROBLEM_NAME + " (temp)",
+    "results", PROBLEM_NAME + " (new)",
     f"subcase({PROBLEM_SUBCASE})" +
     f"-material({'_'.join(MATERIAL_MODEL_NAMES)})")
 
 SAFE_TO_REMOVE_FILE_TYPES = \
-    ('.out', '.npy', '.pvd', '.vtu', '.png', '.svg', '.eps', '.pdf')
+    ('.txt', '.npy', '.pvd', '.vtu', '.png', '.svg', '.eps', '.pdf')
 
 EPS = 1e-12
 
@@ -151,6 +150,8 @@ id_subdomains_dic        = mesh_data['id_subdomains_dic']
 id_boundaries_pad_moving = mesh_data['id_boundaries_pad_moving']
 id_boundaries_pad_fixed  = mesh_data['id_boundaries_pad_fixed']
 id_boundaries_exterior   = mesh_data['id_boundaries_exterior']
+
+import ipdb; ipdb.set_trace()
 
 # NOTE: The marker id's of material subdomains (`id_subdomains_material`) can be
 #       defined as a sequence of sequences's. In this case, `id_subdomains_material
@@ -406,15 +407,23 @@ if PROBLEM_SUBCASE == "monolithic":
 
         if FIXED_EXTERNAL_BOUNDARY:
             raise NotImplementedError
-
         else:
-
-            if   MESH_NAME_TAG == "1": model_parameter_init = (2.963011414641114269e-02, 1.598240659106513750e-01)
-            elif MESH_NAME_TAG == "2": model_parameter_init = (2.944986705163990179e-02, 1.453630485862034694e-01)
-            elif MESH_NAME_TAG == "3": model_parameter_init = (2.838323203496151068e-02, 1.566668537617276202e-01)
-            elif MESH_NAME_TAG == "4": model_parameter_init = (2.803433650745537631e-02, 1.466638526492443639e-01)
-            elif MESH_NAME_TAG == "5": model_parameter_init = (2.679497761354525734e-02, 1.360910810533804971e-01)
-            else: raise NotImplementedError
+            if MAXIMUM_DISPLACEMENT == 3.0:
+                if   MESH_NAME_TAG == "1": model_parameter_init = (2.930536e-02, 1.598242e-01)
+                elif MESH_NAME_TAG == "2": model_parameter_init = (2.913111e-02, 1.453632e-01)
+                elif MESH_NAME_TAG == "3": model_parameter_init = (2.807129e-02, 1.566669e-01)
+                elif MESH_NAME_TAG == "4": model_parameter_init = (2.772578e-02, 1.466639e-01)
+                elif MESH_NAME_TAG == "5": model_parameter_init = (2.650264e-02, 1.360912e-01)
+                else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
+            elif MAXIMUM_DISPLACEMENT == 2.0:
+                if   MESH_NAME_TAG == "1": model_parameter_init = (3.111523e-02, 2.242006e-01)
+                elif MESH_NAME_TAG == "2": model_parameter_init = (3.100804e-02, 2.067513e-01)
+                elif MESH_NAME_TAG == "3": model_parameter_init = (2.988386e-02, 2.168054e-01)
+                elif MESH_NAME_TAG == "4": model_parameter_init = (2.960181e-02, 2.051246e-01)
+                elif MESH_NAME_TAG == "5": model_parameter_init = (2.833093e-02, 1.952619e-01)
+                else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
+            else:
+                raise NotImplementedError(f'`MAXIMUM_DISPLACEMENT`: {MAXIMUM_DISPLACEMENT}')
 
         material_parameters.append({
             'E':  Constant(model_parameter_init[0]),
@@ -432,84 +441,59 @@ elif PROBLEM_SUBCASE == "bimaterial":
         material_classes.append(material.NeoHookean)
         material_classes.append(material.NeoHookean)
 
-        NUMBER_OF_MODEL_PARAMETERS = 4  # Assign the appropriate value: `2` or `4`
-
         if not FIXED_EXTERNAL_BOUNDARY:
 
-            if NUMBER_OF_MODEL_PARAMETERS == 2:
-
-                if   MESH_NAME_TAG == "1": model_parameter_init = (1.090813107096536699e-01, 4.062347391656254136e-01)
-                elif MESH_NAME_TAG == "2": model_parameter_init = (9.975743862934521866e-02, 4.166089662522097226e-01)
-                elif MESH_NAME_TAG == "3": model_parameter_init = (1.094745007470644405e-01, 3.893025082154862315e-01)
-                elif MESH_NAME_TAG == "4": model_parameter_init = (1.062777335344494423e-01, 3.706073657389226117e-01)
-                elif MESH_NAME_TAG == "5": model_parameter_init = (1.082390169459683943e-01, 3.505140390616134916e-01)
-                else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
-
-            elif NUMBER_OF_MODEL_PARAMETERS == 4:
-
-                if MESH_NAME_TAG == "1":
-                    model_parameter_init = (
-                        8.448515290490056506e-02, # E_keloid
-                        4.418101500996806097e-01, # nu_keloid
-                        8.839441415078111430e-02, # E_skin
-                        9.721150345672150417e-01, # nu_skin
-                        )
-                elif MESH_NAME_TAG == "2":
-                    model_parameter_init = (
-                        7.682032083930719069e-02, # E_keloid
-                        4.480419393211982348e-01, # nu_keloid
-                        8.038242480796391198e-02, # E_skin
-                        9.135268918419600093e-01, # nu_skin
-                        )
-                elif MESH_NAME_TAG == "3":
-                    model_parameter_init = (
-                        1.196753e-01, # E_keloid
-                        3.920476e-01, # nu_keloid
-                        3.327153e-02, # E_skin
-                        1.286857e-01, # nu_skin
-                        )
-                elif MESH_NAME_TAG == "4":
-                    model_parameter_init = (
-                        1.130818461553569770e-01, # E_keloid
-                        3.579165194801819383e-01, # nu_keloid
-                        1.492998765400741119e-02, # E_skin
-                        2.056669586409408390e-01, # nu_skin
-                        )
-                elif MESH_NAME_TAG == "5":
-                    model_parameter_init = (
-                        1.292868e-01, # E_keloid
-                        3.354661354469088974e-01, # nu_keloid
-                        1.348949e-02, # E_skin
-                        2.009210948264882890e-01, # nu_skin
-                        )
-
+            if ONLY_SOLVE_KELOID_MODEL_PARAMETERS:
+                if MAXIMUM_DISPLACEMENT == 3.0:
+                    if   MESH_NAME_TAG == "1": model_parameter_init = (1.238582e-01, 4.040724e-01, 2.650264e-02, 1.360912e-01)
+                    elif MESH_NAME_TAG == "2": model_parameter_init = (1.135716e-01, 4.144118e-01, 2.650264e-02, 1.360912e-01)
+                    elif MESH_NAME_TAG == "3": model_parameter_init = (1.241487e-01, 3.869594e-01, 2.650264e-02, 1.360912e-01)
+                    elif MESH_NAME_TAG == "4": model_parameter_init = (1.204257e-01, 3.680517e-01, 2.650264e-02, 1.360912e-01)
+                    elif MESH_NAME_TAG == "5": model_parameter_init = (1.224988e-01, 3.479096e-01, 2.650264e-02, 1.360912e-01)
+                    else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
+                elif MAXIMUM_DISPLACEMENT == 2.0:
+                    if   MESH_NAME_TAG == "1": model_parameter_init = (7.627915e-02, 4.115764e-01, 2.833093e-02, 1.952619e-01)
+                    elif MESH_NAME_TAG == "2": model_parameter_init = (6.921533e-02, 4.213533e-01, 2.833093e-02, 1.952619e-01)
+                    elif MESH_NAME_TAG == "3": model_parameter_init = (7.729406e-02, 3.913648e-01, 2.833093e-02, 1.952619e-01)
+                    elif MESH_NAME_TAG == "4": model_parameter_init = (7.539667e-02, 3.701861e-01, 2.833093e-02, 1.952619e-01)
+                    elif MESH_NAME_TAG == "5": model_parameter_init = (7.707288e-02, 3.468716e-01, 2.833093e-02, 1.952619e-01)
+                    else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
                 else:
-                    raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
-
+                    raise NotImplementedError(f'`MAXIMUM_DISPLACEMENT`: {MAXIMUM_DISPLACEMENT}')
             else:
-                raise NotImplementedError('`NUMBER_OF_MODEL_PARAMETERS`: {NUMBER_OF_MODEL_PARAMETERS}')
+                if MAXIMUM_DISPLACEMENT == 3.0:
+                    if   MESH_NAME_TAG == "1": model_parameter_init = (1.397750e-01, 3.866090e-01, 0.000000e+00, 3.584002e-01)
+                    elif MESH_NAME_TAG == "2": model_parameter_init = (1.300315e-01, 3.966108e-01, 0.000000e+00, 3.312940e-01)
+                    elif MESH_NAME_TAG == "3": model_parameter_init = (1.388280e-01, 3.681716e-01, 0.000000e+00, 3.348060e-01)
+                    elif MESH_NAME_TAG == "4": model_parameter_init = (1.337661e-01, 3.477174e-01, 0.000000e+00, 3.018674e-01)
+                    elif MESH_NAME_TAG == "5": model_parameter_init = (1.351081e-01, 3.273882e-01, 0.000000e+00, 2.824857e-01)
+                    else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
+                elif MAXIMUM_DISPLACEMENT == 2.0:
+                    if   MESH_NAME_TAG == "1": model_parameter_init = (9.220780e-02, 3.871536e-01, 0.000000e+00, 3.575976e-01)
+                    elif MESH_NAME_TAG == "2": model_parameter_init = (8.560924e-02, 3.961218e-01, 0.000000e+00, 3.282735e-01)
+                    elif MESH_NAME_TAG == "3": model_parameter_init = (9.176119e-02, 3.654750e-01, 0.000000e+00, 3.292959e-01)
+                    elif MESH_NAME_TAG == "4": model_parameter_init = (8.841400e-02, 3.430653e-01, 0.000000e+00, 2.944169e-01)
+                    elif MESH_NAME_TAG == "5": model_parameter_init = (8.934647e-02, 3.207524e-01, 0.000000e+00, 2.735866e-01)
+
+                    else: raise NotImplementedError(f'`MESH_NAME_TAG`: {MESH_NAME_TAG}')
+                else:
+                    raise NotImplementedError(f'`MAXIMUM_DISPLACEMENT`: {MAXIMUM_DISPLACEMENT}')
 
             material_parameters.append({
-                'E':  model_parameter_init[0],
+                'E':  Constant(model_parameter_init[0]),
                 'nu': Constant(model_parameter_init[1]),
                 }) # Keloid skin
 
-            if len(model_parameter_init) == 2:
-
+            if ONLY_SOLVE_KELOID_MODEL_PARAMETERS:
                 material_parameters.append({
-                    'E':  2.679497761354525734e-02,
-                    'nu': 1.360910810533804971e-01,
+                    'E':  model_parameter_init[2],
+                    'nu': model_parameter_init[3],
                     }) # Healthy skin
-
-            elif len(model_parameter_init) == 4:
-
+            else:
                 material_parameters.append({
                     'E':  Constant(model_parameter_init[2]),
                     'nu': Constant(model_parameter_init[3]),
                     }) # Healthy skin
-
-            else:
-                raise NotImplementedError(f'`len(model_parameter_init)`: {len(model_parameter_init)}')
 
         else:
             raise NotImplementedError(f'`FIXED_EXTERNAL_BOUNDARY`: {FIXED_EXTERNAL_BOUNDARY}')
@@ -748,6 +732,7 @@ def sensitivity_std(dmdv, std_dv=1):
     Assume identical and independent standard deviation in the measurements.'''
     return np.sqrt(sensitivity_var(dmdv, std_dv**2))
 
+
 if COMPUTE_SENSITIVITIES:
     with SimpleTimer(f'Assess model parameter sensitivities wrt measurements'):
 
@@ -763,7 +748,6 @@ if COMPUTE_SENSITIVITIES:
         dmdf_msr = [[inverse_solver.observe_dmdf_msr(t)[i_msr]
                     for t in inverse_solver.observation_times]
                     for i_msr in range(inverse_solver.num_f_msr)]
-
 
         senssup_dmdu_msr = [[sensitivity_sup(dmdu_msr_t)
             for dmdu_msr_t in dmdu_msr_i] for dmdu_msr_i in dmdu_msr]
@@ -877,7 +861,7 @@ def compute_correlation_dmdu_msr(dmdu_msr):
     return correlation_matrix
 
 if COMPUTE_SENSITIVITIES:
-    with SimpleTimer(f'Observe model parameter sensitivities (method-1)'):
+    with SimpleTimer(f'Observe model parameter sensitivities'):
 
         # Observe model parameter sensitivities with respect to the displacement
         # field measurements using the method based on the model cost variations.
@@ -942,7 +926,10 @@ if COMPUTE_SENSITIVITIES:
                         for key_i, value_i in test_results.items():
                             print(f'  {key_i:13s}: {value_i}')
 
-    with SimpleTimer(f'Observe model parameter sensitivities (method-2)'):
+    with SimpleTimer(f'Estimate model parameter sensitivities globally'):
+
+        # dmdu_at_t_as_array_values
+        # dmdu_at_t_as_vector_field
 
         # Compute model parameter sensitivities by minimizing the distance
         # between the variation in the primary field with respect to the model
@@ -1000,76 +987,6 @@ if COMPUTE_SENSITIVITIES:
                     print("Results from the test:")
                     for key_i, value_i in test_results.items():
                         print(f'  {key_i:13s}: {value_i}')
-
-
-    with SimpleTimer(f'Observe model parameter sensitivities (method-3)'):
-
-        # Compute the model parameter sensitivities from the eigenvectors of
-        # the model cost. The constness of the external force can be taken
-        # into account.
-        #
-        # NOTE: The sensitivities can only be determined in relative terms. As
-        # such, the sensitivities can not be used to estimate the change in the
-        # model parameters for a given change in the displacement measurements.
-        # In contrast to the previous methods, the sensitivities are directly
-        # obtained as smooth functions. The sensitivity function are normalized
-        # because the magnitude of sensitivity does not matter.
-
-        d2J_principal_unconstrained, dm_principal_unconstrained = \
-            inverse_solver.assess_cost_sensitivity(constraint_vectors=None)
-        # NOTE: Sorted in descending order of absolute magnitude.
-
-        i_msr = 0 # Index of measured force
-        i_dim = 0 # Index of force component
-
-        # Assume the constraint to be the `i_msr`th force
-        dfdm_at_t = inverse_solver.observe_dfdm(t_obs)[i_msr]
-        # NOTE: It may be more appropriate to use the mean force.
-
-        # Consider only the `i_dim`th component
-        constraint_vector = dfdm_at_t[i_dim, :]
-
-        d2J_principal_constrained, dm_principal_constrained = \
-            inverse_solver.assess_cost_sensitivity(constraint_vector)
-        # NOTE: Sorted in descending order of absolute magnitude.
-
-        # # Last principal value is zero because a constraint was used
-        # d2J_principal_constrained = d2J_principal_constrained[:-1]
-        # dm_principal_constrained = dm_principal_constrained[:-1]
-
-        dudm_dm_principal_at_t_as_vector_field = \
-            [inverse_solver.observe_dudm_dm(dm_i, t_obs)
-             for dm_i in dm_principal_constrained]
-
-        dudm_dm_principal_at_t_as_scalar_field = \
-            [dolfin.project(dolfin.sqrt(f**2), S)
-            for f in dudm_dm_principal_at_t_as_vector_field]
-
-        for i, fn_i in enumerate(dudm_dm_principal_at_t_as_vector_field):
-            fn_i.rename(f'du/dm[dm_principal_{i}]', '')
-
-        for i, fn_i in enumerate(dudm_dm_principal_at_t_as_scalar_field):
-            fn_i.rename(f'du/dm[dm_principal_{i}]', '')
-
-        ### Normalize the sensitivity functions since the magnitudes do not matter
-
-        assert V==V_obs, "Can not handle mixed function spaces. [TODO]"
-        dofmaps = examples.utility.list_subspace_dofs(V_obs)
-
-        for fn_i in dudm_dm_principal_at_t_as_vector_field:
-
-            vec = fn_i.vector()
-            arr = vec.get_local()
-
-            norm_vec = np.sqrt(
-                (np.stack([arr[dofmap_i] for dofmap_i in dofmaps], axis=1)**2)
-                .sum(axis=1)).max() # l-infinity norm of the vector magnitudes
-
-            vec /= norm_vec + EPS
-
-        for fn_i in dudm_dm_principal_at_t_as_scalar_field:
-            fn_i.vector()[:] /= (np.abs(fn_i.vector().get_local()).max() + EPS)
-
 
 if COMPUTE_MISFIT_FIELD:
     with SimpleTimer(f'Observe displacement field misfit'):
@@ -1171,22 +1088,22 @@ def plot_results():
     fig_handle_and_name_pairs.append(
         examples.plotting.plot_problem_domain(
             mesh=None, domain_markers=domain_markers,
-            figname="Material Subdomains with Superposed Displacement Measurement Points"))
+            figname="displacement measurement points"))
 
     idx_figure_handle = 0
     handle_scatter_plot = fig_handle_and_name_pairs[-1][idx_figure_handle].get_axes()[0] \
         .scatter(measurement_x_dic[:,0], measurement_x_dic[:,1], s=1, c='r', marker='.')
-    plt.legend([handle_scatter_plot], ["DIC data"])
+    # plt.legend([handle_scatter_plot], ["DIC data"])
 
     fig_handle_and_name_pairs.append(
         examples.plotting.plot_problem_domain(
             mesh=None, domain_markers=measurement_markers_dic,
-            figname="Displacement Measurement Subdomain"))
+            figname="displacement measurement subdomain"))
 
     idx_figure_handle = 0
     handle_scatter_plot = fig_handle_and_name_pairs[-1][idx_figure_handle].get_axes()[0] \
         .scatter(measurement_x_dic[:,0], measurement_x_dic[:,1], s=1, c='r', marker='.')
-    plt.legend([handle_scatter_plot], ["DIC data"])
+    # plt.legend([handle_scatter_plot], ["DIC data"])
 
     if OPTIMIZE_FOREACH_OBSERVATION_TIME:
 
@@ -1195,7 +1112,7 @@ def plot_results():
                 model_parameters_foreach,
                 material_parameter_names,
                 model_observation_times,
-                figname="Fitted Model Parameters for Each Observation Time"))
+                figname="fitted model parameters for each observation time"))
 
     if OPTIMIZE_FORALL_OBSERVATION_TIMES:
 
@@ -1203,7 +1120,7 @@ def plot_results():
             examples.plotting.plot_model_parameters_forall(
                 model_parameters_forall,
                 material_parameter_names,
-                figname="Fitted Model Parameters for all Observation Times"))
+                figname="fitted model parameters for all observation times"))
 
     if COMPUTE_FINAL_COST:
 
@@ -1212,14 +1129,14 @@ def plot_results():
                 cost_values_final,
                 cost_values_initial,
                 model_observation_times,
-                figname="Model Cost"))
+                figname="model cost"))
 
         fig_handle_and_name_pairs.append(
             examples.plotting.plot_cost_gradients(
                 cost_gradients_final,
                 material_parameter_names,
                 model_observation_times,
-                figname="Model Cost Derivatives"))
+                figname="model cost derivatives"))
 
     if COMPUTE_MISFIT_ERROR:
 
@@ -1227,15 +1144,15 @@ def plot_results():
             examples.plotting.plot_observation_misfit(
                 misfit_reaction_forces[MEASUREMENT_INDEX],
                 model_observation_times,
-                figname="Reaction Force Misfit Error",
-                ylabel="Reaction force misfit error, $||f_{obs}-f_{msr}||/||f_{msr}||$"))
+                figname="reaction force misfit error",
+                ylabel="Force misfit, $||f_{obs}-f_{msr}||/||f_{msr}||$"))
 
         fig_handle_and_name_pairs.append(
             examples.plotting.plot_observation_misfit(
                 misfit_displacements[MEASUREMENT_INDEX],
                 model_observation_times,
-                figname="Displacement Field Misfit Error",
-                ylabel="Displacement field misfit error, $||u_{obs}-u_{msr}||/||u_{msr}||$"))
+                figname="displacement field misfit error",
+                ylabel="Displacement misfit, $||u_{obs}-u_{msr}||/||u_{msr}||$"))
 
     if COMPUTE_REACTION_FORCE:
 
@@ -1244,7 +1161,7 @@ def plot_results():
                 np.array(reaction_forces_observed[MEASUREMENT_INDEX])[:,0],
                 np.array(reaction_forces_measured[MEASUREMENT_INDEX])[:,0],
                 np.array(reaction_displacements[MEASUREMENT_INDEX])[:,0],
-                figname="Reaction Force-Displacement Curve"))
+                figname="reaction force-displacement curve"))
 
     if COMPUTE_SENSITIVITIES:
 
@@ -1253,90 +1170,65 @@ def plot_results():
                 sensstd_dmdu_msr[MEASUREMENT_INDEX],
                 material_parameter_names,
                 model_observation_times,
-                figname="Model Parameter Sensitivities wrt Displacement Measurements (Absolute)",
-                ylabel="Model parameter sensitivity, $std(m_i)$",
-                title="Standard Deviation in Model Parameters Assuming One\n"
-                    "Standard Deviation in Displacement Measurements"))
+                figname="model parameter sensitivities wrt displacement measurements (absolute)",
+                ylabel="Absolute model parameter sensitivity, $std(m_i)$"))
+                # title=("Standard Deviation in Model Parameters Assuming One\n"
+                #        "Standard Deviation in Displacement Measurements")
 
         fig_handle_and_name_pairs.append(
             examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdf_msr[MEASUREMENT_INDEX],
                 material_parameter_names,
                 model_observation_times,
-                figname="Model Parameter Sensitivitiesd wrt Force Measurements (Absolute)",
-                ylabel="Model parameter sensitivity, $std(m_i)$",
-                title=("Standard Deviation in Model Parameters Assuming One\n"
-                    "Standard Deviation in Reaction Force Measurements")))
+                figname="model parameter sensitivitiesd wrt force measurements (absolute)",
+                ylabel="Absolute model parameter sensitivity, $std(m_i)$"))
+                # title=("Standard Deviation in Model Parameters Assuming One\n"
+                #        "Standard Deviation in Reaction Force Measurements")
 
         fig_handle_and_name_pairs.append(
             examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdu_msr_relative[MEASUREMENT_INDEX],
                 material_parameter_names,
                 model_observation_times,
-                figname="Model Parameter Sensitivities wrt Displacement Measurements (Relative)",
-                ylabel="Relative Model parameter sensitivity, $std(m_i)/|m_i|$",
-                title="Relative Deviation in Model Parameters Assuming One\n"
-                    "Standard Deviation in Displacement Measurements"))
+                figname="model parameter sensitivities wrt displacement measurements (relative)",
+                ylabel="Relative model parameter sensitivity, $std(m_i)/|m_i|$"))
+                # title=("Relative Deviation in Model Parameters Assuming One\n"
+                #        "Standard Deviation in Displacement Measurements")
 
         fig_handle_and_name_pairs.append(
             examples.plotting.plot_model_parameter_sensitivities(
                 sensstd_dmdf_msr_relative[MEASUREMENT_INDEX],
                 material_parameter_names,
                 model_observation_times,
-                figname="Model Parameter Sensitivities wrt Force Measurements (Relative)",
-                ylabel="Relative Model parameter sensitivity, $std(m_i)/|m_i|$",
-                title=("Relative Deviation in Model Parameters Assuming One\n"
-                    "Standard Deviation in Reaction Force Measurements")))
+                figname="model parameter sensitivities wrt force measurements (relative)",
+                ylabel="Relative model parameter sensitivity, $std(m_i)/|m_i|$"))
+                # title=("Relative Deviation in Model Parameters Assuming One\n"
+                #        "Standard Deviation in Reaction Force Measurements")
 
         for i, fn_i in enumerate(dmdu_msr_at_t_as_scalar_field[MEASUREMENT_INDEX]):
-
             fig_handle_and_name_pairs.append(
                 examples.plotting.plot_scalar_field(fn_i,
-                    figname=f'Sensitivity of Model Parameter ({i})',
-                    title=('Sensitivity of Model Parameter '
-                        f'"{material_parameter_names[i]}"\n'
-                        'with Respect to Displacement Field Measurements')))
+                    figname=('sensitivity of model parameter '
+                            f'{material_parameter_names[i]} '
+                            'wrt displacement field measurements')))
+
+            ax = fig_handle_and_name_pairs[-1][0].axes[0]
+            ax.text(0.95, 0.95, f'$||dm_{i}/du_{{msr}}||={dolfin.norm(fn_i):.2e}$',
+                    transform=ax.transAxes, verticalalignment='top',
+                    horizontalalignment='right', bbox={'facecolor':'wheat'})
 
         for i, fn_i in enumerate(dmdu_at_t_as_scalar_field):
-
             fig_handle_and_name_pairs.append(
                 examples.plotting.plot_scalar_field(fn_i,
-                    figname=f'Estimated Global Sensitivity ({i})',
-                    title=('Estimated Global Sensitivity\n'
-                        f'of Model Parameter "{material_parameter_names[i]}"')))
+                    figname=('sensitivity of model parameter '
+                             f'{material_parameter_names[i]} '
+                             'wrt displacement field measurements (estimated)')))
 
-        for i, fn_i in enumerate(dudm_dm_principal_at_t_as_scalar_field):
-            i_prc = i + 1 # Principal values are usually enumerated from `1`
+            ax = fig_handle_and_name_pairs[-1][0].axes[0]
+            ax.text(0.95, 0.95, f'$||dm_{i}/du||={dolfin.norm(fn_i):.2e}$',
+                    transform=ax.transAxes, verticalalignment='top',
+                    horizontalalignment='right', bbox={'facecolor':'wheat'})
 
-            fig_handle_and_name_pairs.append(
-                examples.plotting.plot_scalar_field(fn_i,
-                    figname=f'Principal Model Cost Sensitivity ({i})',
-                    title=(f'Principal Model Cost Sensitivity ({i_prc})\n'
-                        'with Respect to Displacement Measurements')))
-
-    if COMPUTE_MISFIT_FIELD:
-
-        fig_handle_and_name_pairs.append(
-            examples.plotting.plot_scalar_field(
-                u_mis_at_t_as_scalar_field,
-                figname='Displacement Field Misfit',
-                title='Misfit Between Model and Measured Displacements'))
-
-    if COMPUTE_STRESS_FIELD:
-
-        if stress_field_pk1_at_t is not None:
-            fig_handle_and_name_pairs.append(
-                examples.plotting.plot_scalar_field(
-                    dolfin.project(stress_field_pk1_at_t**2, S),
-                    figname='Stress Field Magnitude (PK1)',
-                    title='Stress Field Magnitude (PK1)'))
-
-        if stress_field_pk2_at_t is not None:
-            fig_handle_and_name_pairs.append(
-                examples.plotting.plot_scalar_field(
-                    dolfin.project(stress_field_pk2_at_t**2, S),
-                    figname='Stress Field Magnitude (PK2)',
-                    title='Stress Field Magnitude (PK2)'))
 
     return fig_handle_and_name_pairs
 
@@ -1385,44 +1277,44 @@ def save_results(fig_handle_and_name_pairs=None):
         for ext_j in SAVE_FIGURE_EXTENSIONS:
             handle_i.savefig(subdir_i + ext_j)
 
-    file_name = "model_observation_times.out"
+    file_name = "model_observation_times.txt"
     np.savetxt(os.path.join(outdir_arrays, file_name),
                model_observation_times)
 
-    file_name = "cost_gradient.out"
+    file_name = "cost_gradient.txt"
     np.savetxt(os.path.join(outdir_arrays, file_name),
                inverse_solver.view_cumsum_DJDm(),
                header='Model cost gradient `DJDm`.')
 
-    file_name = "cost_hessian.out"
+    file_name = "cost_hessian.txt"
     np.savetxt(os.path.join(outdir_arrays, file_name),
                inverse_solver.view_cumsum_D2JDm2(),
                header='Model cost Hessian `D2JDm2`.')
 
     if cost_values_initial is not None:
 
-        file_name = "cost_values_initial"
+        file_name = "cost_values_initial.txt"
         np.savetxt(os.path.join(outdir_arrays, file_name),
                    np.array(cost_values_initial)[:,None],
                    header='Model cost at observation times.')
 
     if cost_values_final is not None:
 
-        file_name = "cost_values_final"
+        file_name = "cost_values_final.txt"
         np.savetxt(os.path.join(outdir_arrays, file_name),
                    np.array(cost_values_final)[:,None],
                    header='Model cost at observation times.')
 
     if model_parameters_foreach is not None:
 
-        file_name = "model_parameters_for_each_time.out"
+        file_name = "model_parameters_for_each_time.txt"
         np.savetxt(os.path.join(outdir_arrays, file_name),
                    np.array(model_parameters_foreach, ndmin=2),
                    header=' '.join(material_parameter_names))
 
     if model_parameters_forall is not None:
 
-        file_name = "model_parameters_for_all_times.out"
+        file_name = "model_parameters_for_all_times.txt"
         np.savetxt(os.path.join(outdir_arrays, file_name),
                    np.array(model_parameters_forall, ndmin=2),
                    header=' '.join(material_parameter_names))
@@ -1454,17 +1346,6 @@ def save_results(fig_handle_and_name_pairs=None):
 
     if COMPUTE_SENSITIVITIES:
 
-        file_name = "cost_sensitivity_constrained.out"
-        file_path = os.path.join(outdir_arrays, file_name)
-        np.savetxt(file_path, np.array(d2J_principal_constrained, ndmin=2),
-                   header= 'Eigenvalues of model cost Hessian `D2JDm2` '
-                           '(constrained wrt. reaction force).')
-
-        file_name = "cost_sensitivity_unconstrained.out"
-        file_path = os.path.join(outdir_arrays, file_name)
-        np.savetxt(file_path, np.array(d2J_principal_unconstrained, ndmin=2),
-                   header='Eigenvalues of model cost Hessian `D2JDm2`.')
-
         if inverse_solver.num_u_msr == 1:
 
             i_msr = 0
@@ -1478,7 +1359,7 @@ def save_results(fig_handle_and_name_pairs=None):
             file_path = os.path.join(outdir_arrays, file_name)
             np.save(file_path, dmdf_msr[i_msr][i_obs])
 
-            file_name = f"correlation_dmdu_msr_at_t.out"
+            file_name = f"correlation_dmdu_msr_at_t.txt"
             file_path = os.path.join(outdir_arrays, file_name)
             file_header = ("Correlation between model parameter sensitivities "
                            "with respect to displacement field measurements.\n"
@@ -1486,28 +1367,28 @@ def save_results(fig_handle_and_name_pairs=None):
                            "Column -> j\'th model parameter sensitivity vector")
             np.savetxt(file_path, correlation_dmdu_msr_at_t[i_msr], header=file_header)
 
-            file_name = f"senssup_dmdu_msr_for_each_time.out"
+            file_name = f"senssup_dmdu_msr_for_each_time.txt"
             file_path = os.path.join(outdir_arrays, file_name)
             file_header = ("Sensitivity measure: SUPREMUM\n"
                            "Row -> observation time\n"
                            "Column -> model parameter")
             np.savetxt(file_path, np.array(senssup_dmdu_msr[i_msr]), header=file_header)
 
-            file_name = f"sensstd_dmdu_msr_for_each_time.out"
+            file_name = f"sensstd_dmdu_msr_for_each_time.txt"
             file_path = os.path.join(outdir_arrays, file_name)
             file_header = ("Sensitivity measure: STANDARD DEVIATION\n"
                            "Row -> observation time\n"
                            "Column -> model parameter")
             np.savetxt(file_path, np.array(sensstd_dmdu_msr[i_msr]), header=file_header)
 
-            file_name = f"senssup_dmdf_msr_for_each_time.out"
+            file_name = f"senssup_dmdf_msr_for_each_time.txt"
             file_path = os.path.join(outdir_arrays, file_name)
             file_header = ("Sensitivity measure: SUPREMUM\n"
                            "Row -> observation time\n"
                            "Column -> model parameter")
             np.savetxt(file_path, np.array(senssup_dmdf_msr[i_msr]), header=file_header)
 
-            file_name = f"sensstd_dmdf_msr_for_each_time.out"
+            file_name = f"sensstd_dmdf_msr_for_each_time.txt"
             file_path = os.path.join(outdir_arrays, file_name)
             file_header = ("Sensitivity measure: STANDARD DEVIATION\n"
                            "Row -> observation time\n"
@@ -1526,11 +1407,6 @@ def save_results(fig_handle_and_name_pairs=None):
             file_name = f"dm({i_m})du_msr_at_t({t_obs:02d})_estimated.pvd"
             file_path = os.path.join(outdir_functions, file_name)
             dolfin.File(file_path) << dmidu
-
-        for i, dudm_i in enumerate(dudm_dm_principal_at_t_as_vector_field):
-            file_name = f"dudm_dm_principal({i})_at_t({t_obs:02d}).pvd"
-            file_path = os.path.join(outdir_functions, file_name)
-            dolfin.File(file_path) << dudm_i
 
     if close_figures_finally:
         for fig_handle_i in fig_handles:
