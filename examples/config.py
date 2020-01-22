@@ -4,6 +4,19 @@ import sys
 import numpy
 import dolfin
 import logging
+import matplotlib
+
+
+matplotlib.rc('lines',  linewidth=2,
+                        markerfacecolor='w',
+                        markeredgewidth=2.0,
+                        markersize=8.0)
+matplotlib.rc('axes',   titlesize='large',   # fontsize of the axes title
+                        labelsize='large')   # fontsize of the x and y labels
+matplotlib.rc('xtick',  labelsize='large')   # fontsize of the tick labels
+matplotlib.rc('ytick',  labelsize='large')   # fontsize of the tick labels
+matplotlib.rc('legend', fontsize='large')    # legend fontsize
+
 
 numpy.set_printoptions(
     edgeitems = 4,

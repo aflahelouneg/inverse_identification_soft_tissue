@@ -12,11 +12,11 @@ Notes
 parameters_inverse_solver = {
     'solver_method': 'newton', # 'newton' or 'gradient'
     'sensitivity_method': 'adjoint', # 'adjoint' or 'direct'
-    'maximum_iterations': 50,
+    'maximum_iterations': 25,
     'maximum_divergences': 3,
-    'absolute_tolerance': 1e-8,
+    'absolute_tolerance': 1e-7,
     'relative_tolerance': 1e-6,
-    'maximum_relative_change': None,
+    'maximum_relative_change': 0.25, # 0.5,
     'error_on_nonconvergence': False,
     'is_symmetric_form_dFdu': True,
     }
@@ -31,7 +31,7 @@ parameters_nonlinear_solver = {
         'convergence_criterion': 'residual',
         'error_on_nonconvergence': True,
         'linear_solver': 'lu',
-        'maximum_iterations': 50,
+        'maximum_iterations': 25,
         'preconditioner': 'default',
         'relative_tolerance': 1e-12,
         'relaxation_parameter': 1.0,
@@ -42,7 +42,7 @@ parameters_nonlinear_solver = {
         'error_on_nonconvergence': True,
         'line_search': 'bt', # 'basic' | 'bt'
         'linear_solver': 'lu',
-        'maximum_iterations': 100,
+        'maximum_iterations': 25,
         'maximum_residual_evaluations': 2000,
         'method': 'default',
         'preconditioner': 'default',
