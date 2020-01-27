@@ -131,11 +131,11 @@ class NeoHookean(MaterialModelBase):
 
         for m in self._material_parameters:
 
-            E  = m.get('E',  None)
-            nu = m.get('nu', None)
+            E  = m.get('E',  m.get(r'$E$',  None))
+            nu = m.get('nu', m.get(r'$\nu$',  None))
 
-            mu = m.get('mu', None)
-            lm = m.get('lm', None)
+            mu = m.get('mu', m.get(r'$\mu$', None))
+            lm = m.get('lm', m.get(r'$\lambda$', None))
 
             if mu is None:
                 if E is None or nu is None:

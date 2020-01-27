@@ -57,14 +57,14 @@ PROBLEM_NAME = os.path.basename(os.path.split(__file__)[0])
 
 ### Problem parameters
 
-PROBLEM_SUBCASE = "monolithic"
-MATERIAL_MODEL_NAMES = ["NeoHookean"]
+# PROBLEM_SUBCASE = "monolithic"
+# MATERIAL_MODEL_NAMES = ["NeoHookean"]
 
-# PROBLEM_SUBCASE = "bimaterial"
-# MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
-# ONLY_SOLVE_KELOID_MODEL_PARAMETERS = False
+PROBLEM_SUBCASE = "bimaterial"
+MATERIAL_MODEL_NAMES = ["NeoHookean", "NeoHookean"]
+ONLY_SOLVE_KELOID_MODEL_PARAMETERS = True
 
-MESH_NAME_TAG = "3" # "1", "2", "3", "4", "5"
+MESH_NAME_TAG = "5" # "1", "2", "3", "4", "5"
 
 MAXIMUM_OBSERVATIONS = 10
 # MAXIMUM_OBSERVATIONS = 3
@@ -94,9 +94,9 @@ MESHLESS_DEGREE = 2 # (3 is ill-conditioned)
 MESHLESS_WEIGHT = "center" # "center", "uniform"
 
 PLOT_RESULTS = True
-SAVE_RESULTS = False
+SAVE_RESULTS = True
 
-SAVE_FIGURE_EXTENSIONS = ('.png', '.svg') # '.pdf'
+SAVE_FIGURE_EXTENSIONS = ('.png', '.svg', '.pdf')
 
 if not (isinstance(MATERIAL_MODEL_NAMES, (list, tuple)) and \
         all(isinstance(name_i, str) for name_i in MATERIAL_MODEL_NAMES)):
@@ -150,8 +150,6 @@ id_subdomains_dic        = mesh_data['id_subdomains_dic']
 id_boundaries_pad_moving = mesh_data['id_boundaries_pad_moving']
 id_boundaries_pad_fixed  = mesh_data['id_boundaries_pad_fixed']
 id_boundaries_exterior   = mesh_data['id_boundaries_exterior']
-
-import ipdb; ipdb.set_trace()
 
 # NOTE: The marker id's of material subdomains (`id_subdomains_material`) can be
 #       defined as a sequence of sequences's. In this case, `id_subdomains_material
@@ -426,8 +424,8 @@ if PROBLEM_SUBCASE == "monolithic":
                 raise NotImplementedError(f'`MAXIMUM_DISPLACEMENT`: {MAXIMUM_DISPLACEMENT}')
 
         material_parameters.append({
-            'E':  Constant(model_parameter_init[0]),
-            'nu': Constant(model_parameter_init[1]),
+            r'$E$':  Constant(model_parameter_init[0]),
+            r'$\nu$': Constant(model_parameter_init[1]),
             })
 
     else:
@@ -480,19 +478,19 @@ elif PROBLEM_SUBCASE == "bimaterial":
                     raise NotImplementedError(f'`MAXIMUM_DISPLACEMENT`: {MAXIMUM_DISPLACEMENT}')
 
             material_parameters.append({
-                'E':  Constant(model_parameter_init[0]),
-                'nu': Constant(model_parameter_init[1]),
+                r'$E$':  Constant(model_parameter_init[0]),
+                r'$\nu$': Constant(model_parameter_init[1]),
                 }) # Keloid skin
 
             if ONLY_SOLVE_KELOID_MODEL_PARAMETERS:
                 material_parameters.append({
-                    'E':  model_parameter_init[2],
-                    'nu': model_parameter_init[3],
+                    r'$E$':  model_parameter_init[2],
+                    r'$\nu$': model_parameter_init[3],
                     }) # Healthy skin
             else:
                 material_parameters.append({
-                    'E':  Constant(model_parameter_init[2]),
-                    'nu': Constant(model_parameter_init[3]),
+                    r'$E$':  Constant(model_parameter_init[2]),
+                    r'$\nu$': Constant(model_parameter_init[3]),
                     }) # Healthy skin
 
         else:

@@ -56,7 +56,7 @@ def plot_problem_domain(mesh:dolfin.Mesh=None,
     plt.axis('equal')
     plt.axis('image')
 
-    # plt.tight_layout()
+    plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
 
@@ -91,7 +91,7 @@ def plot_measurement_points(xk:np.ndarray,
     plt.axis('equal')
     plt.axis('image')
 
-    # plt.tight_layout()
+    plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
 
@@ -125,6 +125,8 @@ def plot_model_parameters_foreach(model_parameters_foreach,
     if handles and labels:
         ah.legend(handles, labels)
 
+    plt.tight_layout()
+
     return fh, simplify_figure_name(figname)
 
 
@@ -142,7 +144,9 @@ def plot_model_parameters_forall(model_parameters_forall,
     ah.bar(model_parameter_names, model_parameters_forall, edgecolor='k')
     ah.set_ylabel('Model parameter value, $m_i$')
     ah.grid(True, axis='y')
-    
+
+    plt.tight_layout()
+
     return fh, simplify_figure_name(figname)
 
 
@@ -174,6 +178,8 @@ def plot_model_cost(cost_values_final=None,
        cost_values_initial is not None:
         ah.legend(lh, ['initial', 'final'])
 
+    plt.tight_layout()
+
     return fh, simplify_figure_name(figname)
 
 
@@ -200,6 +206,8 @@ def plot_cost_gradients(cost_gradients,
     if lh and model_parameter_names is not None:
         ah.legend(lh, model_parameter_names)
 
+    plt.tight_layout()
+
     return fh, simplify_figure_name(figname)
 
 
@@ -220,6 +228,8 @@ def plot_observation_misfit(error_observation,
     ah.set_ylabel(ylabel)
     ah.set_xlabel('Observation time, $t$')
     ah.grid(True)
+
+    plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
 
@@ -247,8 +257,7 @@ def plot_reaction_force_vs_displacement(
     ah.legend(['measurement', 'observation'])
     ah.grid(True)
 
-    # ah.set_title(figname)
-    # plt.tight_layout()
+    plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
 
@@ -335,6 +344,8 @@ def plot_model_parameter_sensitivities(
     if title is not None:
         ah.set_title(title)
 
+    plt.tight_layout()
+
     return fh, simplify_figure_name(figname)
 
 
@@ -373,6 +384,6 @@ def plot_scalar_field(function, figname=None, title=None):
     plt.axis('equal')
     plt.axis('image')
 
-    # plt.tight_layout()
+    plt.tight_layout()
 
     return fh, simplify_figure_name(figname)
