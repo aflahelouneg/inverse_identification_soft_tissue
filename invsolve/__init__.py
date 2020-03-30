@@ -1,13 +1,11 @@
+'''
+invsolve/__init__.py
+
+'''
 
 from . import config
-from . import functions
 from . import invsolve
 from . import measure
+from . import prepare
 from . import project
 from . import utility
-
-from .invsolve import InverseSolver
-from .invsolve import InverseSolverBasic
-
-# Get configured logger
-logger = config.logger

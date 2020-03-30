@@ -1,646 +1,365 @@
-'''
-Core module that defines the inverse solver.
 
-'''
+'''Define the inverse solver class `InverseSolver` used for solving inverse
+problems of model parameter estimation.'''
 
+import ufl
+from dolfin import *
 import dolfin
 import logging
+import importlib
+
 import numpy as np
 import scipy.linalg as linalg
 
-from math   import sqrt
-from copy   import deepcopy
-from dolfin import Constant
-from dolfin import Function
-from dolfin import Measure
-from dolfin import action
-from dolfin import assemble
-from dolfin import assemble_system
-from dolfin import derivative
-from dolfin import diff
-
-from ufl.form import Form as ufl_form_t
-from ufl.core.expr import Expr as ufl_expr_t
-from ufl.indexed import Indexed as ufl_indexed_t
-from ufl.constantvalue import zero as ufl_zero
+from dolfin import (
+    Constant,
+    Function,
+    action,
+    assemble,
+    assemble_system,
+    derivative,
+    diff,
+    )
 
 from . import config
-from . import utility
-
-SEQUENCE_TYPES = (tuple, list)
-NUMERIC_TYPES = (int, float)
-
-logger = config.logger
+logger = logging.getLogger()
 
 
-class InverseSolverBasic:
-    '''Basic inverse solver for model parameter estimation.'''
+class InverseSolver:
+    '''
+    Notes
+    -----
+    This class does not take measurements as arguments. The measurements are
+    assumed to be provided in the defintion of the cost functional. Setting of
+    measurements and of the boundary conditions is deligated to the measurement
+    setter function.
 
-    SENSITIVITY_METHOD_DIRECT = 'direct'
-    SENSITIVITY_METHOD_ADJOINT = 'adjoint'
-    INVERSE_SOLVER_METHOD_NEWTON = 'newton'
-    INVERSE_SOLVER_METHOD_GRADIENT = 'gradient'
+    '''
 
-    def __init__(self, Q, L, F, u, bcs, model_parameters,
-                 observation_times, measurement_setter):
+    ITER_METHOD_NEWTON = 'newton'
+    ITER_METHOD_GRADIENT = 'gradient'
+    COMPUTE_SENS_METHOD_DIRECT = 'direct'
+    COMPUTE_SENS_METHOD_ADJOINT = 'adjoint'
+
+    def __init__(self, cost, model, model_parameters, cost_u, cost_f,
+        measurement_setter=None, observation_times=None):
         '''
-        Initialize basic inverse solver.
+        Initialize inverse solver.
 
         Parameters
         ----------
-        Q : ufl.Form
-            Cost functional whose integrand is a square.
 
-        L : ufl.Form
-            Cost functional that will be considered as `0.5*L**2`.
+        model : has attributes
+            u : dolfin.Function
+                Function for the displacement field.
+            Pi : ufl.Form
+                Potential energy of the hyperelastic material.
+            bcs : list or tuple of dolfin.DirichletBC's
+                Dirichlet (displacement) boundary conditions.
 
-        F : ufl.Form
-            Variational form.
-
-        u : dolfin.Function
-            The primary field, e.g. the displacement field.
-
-        bcs : (sequence of) dolfin.DirichletBC('s)
-            Dirichlet boundary conditions.
+        cost : ufl.Form
+            Cost functional to be minimized
 
         model_parameters : contains dolfin.Constant's
             The model parameters to be optimized.
 
-        observation_times : iterable
-            Discrete times for which to consider the value of the model cost.
-
         measurement_setter : function-like that takes time as single argument
             Function that sets all measurements for a given observation time.
 
+        observation_times : iterable
+            Discrete times for which to consider the value of the model cost.
+
         '''
 
-        if Q is None and L is None:
-            raise TypeError('Parameters `Q` and `L` cannot both be `None`')
+        if not (hasattr(model,'u') and hasattr(model,'Pi') and hasattr(model,'bcs')):
+            # print (model)
+            raise TypeError('`model` must have attributes: `u`, `Pi` and `bcs`.')
 
-        if not isinstance(Q, ufl_form_t) and Q is not None:
-            raise TypeError('Parameter `Q` must be a `dolfin` '
-                            'integral form or a `None`')
+        if not isinstance(model.u, Function):
+            raise TypeError('Parameter `model.u` must be a `dolfin.Function`.')
 
-        if not isinstance(L, ufl_form_t) and L is not None:
-            raise TypeError('Parameter `L` must be a `dolfin` '
-                            'integral form or a `None`')
+        if not isinstance(model.Pi, ufl.Form):
+            raise TypeError('Parameter `model.Pi` must be a `ufl.Form`.')
 
-        if not isinstance(F, ufl_form_t):
-            raise TypeError('Parameter `F`')
+        if not (isinstance(model.bcs, dolfin.DirichletBC) or (
+                isinstance(model.bcs, (list,tuple)) and
+                all(isinstance(bc, dolfin.DirichletBC) for bc in model.bcs))):
+            raise TypeError('Parameter `model.bcs` must contain `dolfin.DirichletBC`s.')
 
-        if not isinstance(u, Function):
-            raise TypeError('Parameter `u`')
+        if not isinstance(cost, ufl.Form):
+            raise TypeError('Parameter `cost` must be a `ufl.Form`.')
 
-        if not (isinstance(bcs, dolfin.DirichletBC) or (
-                isinstance(bcs, SEQUENCE_TYPES) and all(
-                isinstance(bc, dolfin.DirichletBC) for bc in bcs))):
-            raise TypeError('Parameter `bcs`')
+        self.model_parameters = model_parameters
 
-        self._model_parameters = utility.replicate_tree_structure(
-            iterable=model_parameters, value_types=Constant)
-
-        self._m = tuple(utility.list_values_from_iterable(
-            iterable=model_parameters, value_types=Constant))
+        self._m = tuple(list_variables_from_iterable(
+            iterable=model_parameters, valid_types=Constant))
 
         self._n = len(self._m)
 
-        self._Q = Q
-        self._L = L
+        if not all(isinstance(m_i, Constant) for m_i in self._m):
+            raise TypeError('`model_parameters` must contain `dolfin.Constant`s.')
 
-        self._F = F
-        self._u = u
+        self.assign_measurement_setter(measurement_setter)
+        self.assign_observation_times(observation_times)
 
-        self._V = u.function_space()
-        self._z = Function(self._V)
+        self._J = cost
+        if cost_u is not None:
+           self._Ju = cost_u
+        if cost_f is not None:
+           self._Jf = cost_f
+
+        self._t = None
+        self._u = model.u
+        self._Pi = model.Pi
+        self._bcs = model.bcs
+
+        self._V = self._u.function_space()
+        self._F = derivative(self._Pi, self._u)
+        self._z = Function(self._V) # as self._u
 
         self._dudm = tuple(Function(self._V) for i in range(self._n))
-        self._d2udm2 = tuple(tuple(Function(self._V) for j in range(i, self._n))
-            for i in range(self._n)) # NOTE: Storing only the upper triangle
 
-        self._dFdu, self._dFdm, self._d2Fdu2, self._d2Fdm2, \
-            self._d2Fdudm = self._partial_derivatives_of_form(F)
+        self._d2udm2 = tuple(
+            tuple(Function(self._V) for j in range(i, self._n))
+            for i in range(self._n)) # store upper triangular part
 
-        if Q is not None:
-            self._dQdu, self._dQdm, self._d2Qdu2, self._d2Qdm2, \
-                self._d2Qdudm = self._partial_derivatives_of_form(Q)
-        else:
-            self._dQdu = self._dQdm = self._d2Qdu2 = \
-                self._d2Qdm2 = self._d2Qdudm = None
+        self._dJdu, self._dJdm, self._d2Jdu2, self._d2Jdudm, self._d2Jdm2 \
+            = self._partial_derivatives_of_form(self._J)
 
-        if L is not None:
-            self._dLdu, self._dLdm, self._d2Ldu2, self._d2Ldm2, \
-                self._d2Ldudm = self._partial_derivatives_of_form(L)
-        else:
-            self._dLdu = self._dLdm = self._d2Ldu2 = \
-                self._d2Ldm2 = self._d2Ldudm = None
+        self._dFdu, self._dFdm, self._d2Fdu2, self._d2Fdudm, self._d2Fdm2 \
+            = self._partial_derivatives_of_form(self._F)
 
-        ### Dirichlet BC's
+        # For assembled LHS of tanget system
+        self._dFdu_mtx = dolfin.PETScMatrix()
 
-        self._bcs_zro = []
-        self._bcs_dof = []
+        # Initialize solution checkpoints
 
-        for bc in bcs:
+        self._reset_checkpoints_nonlinear_solve()
+        self._reset_checkpoints_inverse_solve()
+
+        # Dirichlet BC's
+
+        self._bcs_zro = [] # homogenized bcs
+        self._bcs_dof = [] # Dirichlet dofs
+
+        for bc in self._bcs: # assuming dofs will remain the same
             self._bcs_dof.extend(bc.get_boundary_values().keys())
             bc_zro = dolfin.DirichletBC(bc); bc_zro.homogenize()
             self._bcs_zro.append(bc_zro)
 
         self._bcs_dof = np.array(self._bcs_dof, dtype=np.uint)
 
-        ### Solvers
+        # Nonlinear problem
+
+        nonlinear_problem = dolfin.NonlinearVariationalProblem(
+            self._F, self._u, bcs=self._bcs, J=self._dFdu)
+
+        self._nonlinear_solver = dolfin.NonlinearVariationalSolver(nonlinear_problem)
+        self._nonlinear_solver.parameters.update(config.parameters_nonlinear_solver)
+        self.parameters_nonlinear_solver = self._nonlinear_solver.parameters
+        # self._nonlinear_solver.parameters.nonzero_initial_guess = True
+
+        # Linear adjoint problem
+
+        adjoint_problem = dolfin.LinearVariationalProblem(
+            dolfin.adjoint(self._dFdu), -self._dJdu, self._z, bcs=self._bcs_zro)
+
+        self._adjoint_solver = dolfin.LinearVariationalSolver(adjoint_problem)
+        self.parameters_adjoint_solver = self._adjoint_solver.parameters
+
+        for k in set(self.parameters_adjoint_solver) & set(config.parameters_linear_solver):
+            self.parameters_adjoint_solver[k] = config.parameters_linear_solver[k]
+
+        # Linear solver (for tangent problems)
 
         self._linear_solver = dolfin.LUSolver()
-        self._nonlinear_solver = dolfin.NonlinearVariationalSolver(
-            dolfin.NonlinearVariationalProblem(F, u, bcs, self._dFdu))
-
-        ### Solver parameters
-
         self.parameters_linear_solver = self._linear_solver.parameters
-        self.parameters_nonlinear_solver = self._nonlinear_solver.parameters
+
+        for k in set(self.parameters_linear_solver) & set(config.parameters_linear_solver):
+            self.parameters_linear_solver[k] = config.parameters_linear_solver[k]
+
+        # Inverse solver parameters
+
         self.parameters_inverse_solver = config.parameters_inverse_solver.copy()
 
-        self.set_parameters_linear_solver(config.parameters_linear_solver)
-        self.set_parameters_nonlinear_solver(config.parameters_nonlinear_solver)
 
-        ### Properties to be shared with a derived class
+    def _reset_checkpoints_nonlinear_solve(self):
+        self._is_missing_z = True
+        self._is_missing_dudm = True
+        self._is_missing_d2udm2 = True
+        self._is_missing_dFdu_mtx = True
 
-        # NOTE: Using a `dict` because this allows the values to be mutated.
-        # For example, these values inside an instance of the derived class
-        # `InverseSolver` can be updated and the changes will be reflected
-        # in the object of the `InverseSolverBasic` class that was originally used
-        # to construct the aforementioned object of the `InverseSolver` class.
+    def _reset_checkpoints_inverse_solve(self):
+        self._cumsum_DJDm = None
+        self._cumsum_D2JDm2 = None
+        self._is_converged = False
 
-        self._property = {
-            'observation_time': None,
-            'observation_times': None,
-            'measurement_setter': None,
-            'cumsum_DJDm': None,
-            'cumsum_D2JDm2': None,
-            'is_converged': False,
-            'is_expired_z': True,
-            'is_expired_dudm': True,
-            'is_expired_d2udm2': True,
-            }
 
-        self._assembled_init = {
-            'dFdu':     None,
-            'dFdm':     None,
-            'Q':        None,
-            'dQdu':     None,
-            'dQdm':     None,
-            'd2Qdu2':   None,
-            'd2Qdm2':   None,
-            'd2Qdudm':  None,
-            'L':        None,
-            'dLdu':     None,
-            'dLdm':     None,
-            'd2Ldu2':   None,
-            'd2Ldm2':   None,
-            'd2Ldudm':  None,
-            'J':        None,
-            'dJdu':     None,
-            'dJdm':     None,
-            'd2Jdu2':   None,
-            'd2Jdm2':   None,
-            'd2Jdudm':  None,
-        }
+    def _observation_times_getdefault(self, observation_times=None):
+        '''Return parameter `observation_times` as a tuple; however, if
+        `observation_times` is `None`, return `self._observation_times`.'''
 
-        if Q is None:
-            self._assembled_init['Q']       = 0.0
-            self._assembled_init['dQdu']    = dolfin.PETScVector(dolfin.MPI.comm_world, self._V.dim())
-            self._assembled_init['dQdm']    = (0.0,) * self._n
-            self._assembled_init['d2Qdu2']  = np.zeros((self._V.dim(), self._V.dim()), float)
-            self._assembled_init['d2Qdm2']  = tuple(tuple(0.0 for _ in range(i, self._n)) for i in range(self._n))
-            self._assembled_init['d2Qdudm'] = (self._assembled_init['dQdu'],)*self._n
+        if observation_times is None:
+            return self._observation_times
 
-        if L is None:
-            self._assembled_init['L']       = 0.0
-            self._assembled_init['dLdu']    = dolfin.PETScVector(dolfin.MPI.comm_world, self._V.dim())
-            self._assembled_init['dLdm']    = (0.0,) * self._n
-            self._assembled_init['d2Ldu2']  = np.zeros((self._V.dim(), self._V.dim()), float)
-            self._assembled_init['d2Ldm2']  = tuple(tuple(0.0 for _ in range(i, self._n)) for i in range(self._n))
-            self._assembled_init['d2Ldudm'] = (self._assembled_init['dLdu'],)*self._n
+        elif hasattr(observation_times, '__iter__'):
+            return tuple(observation_times)
 
-        self._assembled = self._assembled_init.copy()
-        self.assign_observation_times(observation_times)
-        self.assign_measurement_setter(measurement_setter)
+        elif isinstance(observation_times, (float,int)):
+            return (observation_times,)
+
+        else:
+            raise TypeError('Not clear how to cast the value of '
+                'parameter `observation_times` into a `tuple`.')
+
+
+    def assign_observation_times(self, observation_times):
+        '''Assign new observation times and reset solution checkpoints.'''
+
+        self._reset_checkpoints_inverse_solve()
+
+        if hasattr(observation_times, '__iter__'):
+            self._observation_times = tuple(observation_times)
+
+        elif isinstance(observation_times, (float, int, type(None))):
+            self._observation_times = (observation_times,)
+
+        else:
+            raise TypeError('Not clear how to cast the value of '
+                'parameter `observation_times` into a `tuple`.')
+
+
+    def assign_measurement_setter(self, measurement_setter):
+        '''Assign measurement setter.
+
+        Parameters
+        ----------
+        measurement_setter : function-like that takes time as single argument
+            Function that sets all measurements for a given observation time.
+
+        '''
+        if callable(measurement_setter):
+            self._measurement_setter = measurement_setter
+        elif measurement_setter is None:
+            self._measurement_setter = lambda t: None # dummy
+        else:
+            raise TypeError('Require parameter `measurement_setter` to be '
+                'a callable (e.g. a function of time) or to be a `None`.')
+
+
+    def assign_model_parameters(self, model_parameters,
+        valid_types = (float, int, np.float64, np.int64, Constant)):
+        '''Assign model parameters from a (nested) iterable. `model_parameters`
+        will be flattened and then the values will be correspondingly assigned.'''
+
+        self._reset_checkpoints_nonlinear_solve()
+        self._reset_checkpoints_inverse_solve()
+
+        m = list_variables_from_iterable(model_parameters, valid_types)
+
+        if self._n != len(m):
+            raise TypeError('Expected `model_parameters` to contain exactly '
+                '{self._n} model parameter(s) but instead found {len(m)}.')
+
+        for self_m_i, m_i in zip(self._m, m):
+            self_m_i.assign(float(m_i))
 
 
     def _partial_derivatives_of_form(self, f):
-        '''Partial derivatives of form `f` with respect to the displacement field
-        (`dolfin.Function`) `u` and model parameters (`dolfin.Constant`s) `m`.
+        '''Partial derivatives of a form `f`.
 
         Parameters
         ----------
         f : ufl.Form
-        u : dolfin.Function
-        m : sequence of dolfin.Constant's
-
-        Notes
-        -----
-        The variation form could have some zero partial derivatives. In the
-        FEniCS implementation, zero-value partial derivatives obtained via the
-        `diff` function can result in the form being empty. Since an empty form
-        can not be assembled, the solution is to set empty `ufl.Form`s to zero.
+            A form that is differentiable with respect to the displacement
+            field `self._u` (`dolfin.Function`) and model parameters `self._m`
+            (`tuple` of `dolfin.Constant`s).
 
         '''
 
         dfdu    = derivative(f, self._u)
         d2fdu2  = derivative(dfdu, self._u)
-        dfdm    = list(diff(f, m_i) for m_i in self._m)
+        dfdm    = tuple(diff(f, m_i) for m_i in self._m)
         d2fdudm = tuple(diff(dfdu, m_i) for m_i in self._m)
-        d2fdm2  = list(list(diff(dfdm_i, m_j) for m_j in self._m[i:])
-                       for i, dfdm_i in enumerate(dfdm))
+        d2fdm2  = tuple(tuple(diff(dfdm_i, m_j) for m_j in self._m[i:])
+            for i, dfdm_i in enumerate(dfdm)) # only upper triangular part
 
-        ufl_zero_dx = ufl_zero()*dolfin.dx(self._V.mesh())
-
-        for i, dfdm_i in enumerate(dfdm):
-            if dfdm_i.empty():
-                dfdm[i] = ufl_zero_dx
-
-        dfdm = tuple(dfdm)
-
-        for d2fdm2_i in d2fdm2:
-            for j, d2fdm2_ij in enumerate(d2fdm2_i):
-                if d2fdm2_ij.empty():
-                    d2fdm2_i[j] = ufl_zero_dx
-
-        d2fdm2 = tuple(tuple(d2fdm2_i) for d2fdm2_i in d2fdm2)
-
-        return dfdu, dfdm, d2fdu2, d2fdm2, d2fdudm
+        return dfdu, dfdm, d2fdu2, d2fdudm, d2fdm2
 
 
-    def _assemble_Q(self):
-        Q = self._assembled['Q']
-        if Q is None:
-            Q = self._assembled['Q'] = assemble(self._Q)
-        return Q
+    def _assemble_tangent_system(self, rhs):
+        '''Assemble tangent stiffness and right hand side forms.'''
 
-    def _assemble_dQdu(self):
-        dQdu = self._assembled['dQdu']
-        if dQdu is None:
-            dQdu = self._assembled['dQdu'] = assemble(self._dQdu)
-        return dQdu
-
-    # def _assemble_d2Qdu2(self):
-    #     d2Qdu2 = self._assembled['d2Qdu2']
-    #     if d2Qdu2 is None:
-    #         d2Qdu2 = self._assembled['d2Qdu2'] = assemble(self._d2Qdu2).array() # FIXME
-    #     return d2Qdu2
-
-    def _assemble_action_d2Qdu2(self, v1, v2):
-        '''Avoid explicitly assembling `self._d2Qdu2`.'''
-        try: return assemble(action(action(self._d2Qdu2, v1), v2))
-        except IndexError: return 0.0
-
-    def _assemble_dQdm(self):
-        dQdm = self._assembled['dQdm']
-        if dQdm is None:
-            dQdm = self._assembled['dQdm'] = [assemble(dQdm_i) for dQdm_i in self._dQdm]
-        return dQdm
-
-    def _assemble_d2Qdm2(self):
-        d2Qdm2 = self._assembled['d2Qdm2']
-        if d2Qdm2 is None:
-            d2Qdm2 = self._assembled['d2Qdm2'] = \
-                [[assemble(d2Qdm2_ij) for d2Qdm2_ij in d2Qdm2_i] for d2Qdm2_i in self._d2Qdm2]
-        return d2Qdm2
-
-    def _assemble_d2Qdudm(self):
-        d2Qdudm = self._assembled['d2Qdudm']
-        if d2Qdudm is None:
-            d2Qdudm = self._assembled['d2Qdudm'] = [assemble(d2Qdudm_i) for d2Qdudm_i in self._d2Qdudm]
-        return d2Qdudm
-
-
-    def _assemble_L(self):
-        L = self._assembled['L']
-        if L is None:
-            L = self._assembled['L'] = assemble(self._L)
-        return L
-
-    def _assemble_dLdu(self):
-        dLdu = self._assembled['dLdu']
-        if dLdu is None:
-            dLdu = self._assembled['dLdu'] = assemble(self._dLdu)
-        return dLdu
-
-    # def _assemble_d2Ldu2(self):
-    #     d2Ldu2 = self._assembled['d2Ldu2']
-    #     if d2Ldu2 is None:
-    #         d2Ldu2 = self._assembled['d2Ldu2'] = assemble(self._d2Ldu2).array()
-    #     return d2Ldu2
-
-    def _assemble_action_d2Ldu2(self, v1, v2):
-        '''Avoid explicitly assembling `self._d2Ldu2`.'''
-        try: return assemble(action(action(self._d2Ldu2, v1), v2))
-        except IndexError: return 0.0
-
-    def _assemble_dLdm(self):
-        dLdm = self._assembled['dLdm']
-        if dLdm is None:
-            dLdm = self._assembled['dLdm'] = [assemble(dLdm_i) for dLdm_i in self._dLdm]
-        return dLdm
-
-    def _assemble_d2Ldm2(self):
-        d2Ldm2 = self._assembled['d2Ldm2']
-        if d2Ldm2 is None:
-            d2Ldm2 = self._assembled['d2Ldm2'] = \
-                [[assemble(d2Ldm2_ij) for d2Ldm2_ij in d2Ldm2_i] for d2Ldm2_i in self._d2Ldm2]
-        return d2Ldm2
-
-    def _assemble_d2Ldudm(self):
-        d2Ldudm = self._assembled['d2Ldudm']
-        if d2Ldudm is None:
-            d2Ldudm = self._assembled['d2Ldudm'] = [assemble(d2Ldudm_i) for d2Ldudm_i in self._d2Ldudm]
-        return d2Ldudm
-
-
-    def _assemble_J(self):
-        J = self._assembled['J']
-        if J is None:
-            Q = self._assemble_Q()
-            L = self._assemble_L()
-            J = self._assembled['J'] = Q + 0.5*L*L
-        return J
-
-    def _assemble_dJdu(self):
-        dJdu = self._assembled['dJdu']
-        if dJdu is None:
-            L    = self._assemble_L()
-            dLdu = self._assemble_dLdu()
-            dQdu = self._assemble_dQdu()
-            dJdu = self._assembled['dJdu'] = dQdu + L*dLdu
-        return dJdu
-
-    # def _assemble_d2Jdu2(self):
-    #     # TODO: Compute the outer product of `self._assemble_dLdu()`
-    #     #       At this time I can compute the product with numpy arrays.
-    #     d2Jdu2 = self._assembled['d2Jdu2']
-    #     if d2Jdu2 is None:
-    #         L      = self._assemble_L()
-    #         dLdu   = self._assemble_dLdu().get_local()  # FIXME: not `np.ndarray`
-    #         d2Ldu2 = self._assemble_d2Ldu2()            # FIXME: `not np.ndarray`
-    #         d2Qdu2 = self._assemble_d2Qdu2()            # FIXME: `not np.ndarray`
-    #         d2Jdu2 = self._assembled['d2Jdu2'] = d2Qdu2 + np.outer(dLdu, dLdu) + L*d2Ldu2
-    #     return d2Jdu2
-
-    def _assemble_action_d2Jdu2(self, v1, v2):
-        '''Avoid explicitly assembling `self._d2Jdu2`.'''
-
-        rv = 0.0
-
-        if self._Q is not None:
-            rv += self._assemble_action_d2Qdu2(v1, v2)
-
-        if self._L is not None:
-            rv += self._assemble_L()*self._assemble_action_d2Ldu2(v1, v2) + \
-                  self._assemble_dLdu().inner(v1.vector()) * \
-                  self._assemble_dLdu().inner(v2.vector())
-
-        return rv
-
-    def _assemble_dJdm(self):
-        dJdm = self._assembled['dJdm']
-        if dJdm is None:
-            L    = self._assemble_L()
-            dLdm = self._assemble_dLdm()
-            dQdm = self._assemble_dQdm()
-            dJdm = self._assembled['dJdm'] = [dQdm_i + L*dLdm_i for dQdm_i, dLdm_i in zip(dQdm, dLdm)]
-        return dJdm
-
-    def _assemble_d2Jdm2(self):
-        d2Jdm2 = self._assembled['d2Jdm2']
-        if d2Jdm2 is None:
-            L      = self._assemble_L()
-            dLdm   = self._assemble_dLdm()
-            d2Ldm2 = self._assemble_d2Ldm2()
-            d2Qdm2 = self._assemble_d2Qdm2()
-            d2Jdm2 = self._assembled['d2Jdm2'] = \
-                [[d2Qdm2_ij + dLdm_i*dLdm_j + L*d2Ldm2_ij
-                for d2Qdm2_ij, dLdm_j, d2Ldm2_ij in zip(d2Qdm2_i, dLdm[i:], d2Ldm2_i)]
-                for i, (d2Qdm2_i, dLdm_i, d2Ldm2_i) in enumerate(zip(d2Qdm2, dLdm, d2Ldm2))]
-        return d2Jdm2
-
-    def _assemble_d2Jdudm(self):
-        d2Jdudm = self._assembled['d2Jdudm']
-        if d2Jdudm is None:
-            L       = self._assemble_L()
-            dLdu    = self._assemble_dLdu()
-            dLdm    = self._assemble_dLdm()
-            d2Ldudm = self._assemble_d2Ldudm()
-            d2Qdudm = self._assemble_d2Qdudm()
-            d2Jdudm = self._assembled['d2Jdudm'] = [d2Qdudm_i + dLdu*dLdm_i + d2Ldudm_i*L
-                for d2Qdudm_i, dLdm_i, d2Ldudm_i in zip(d2Qdudm, dLdm, d2Ldudm)]
-        return d2Jdudm
-
-
-    def _reset_inverse_solution(self):
-        self._property['cumsum_DJDm'] = None
-        self._property['cumsum_D2JDm2'] = None
-        self._property['is_converged'] = False
-
-    def _reset_nonlinear_solution(self):
-        self._property['is_expired_z'] = True
-        self._property['is_expired_dudm'] = True
-        self._property['is_expired_d2udm2'] = True
-        self._assembled = self._assembled_init.copy()
-
-    def _set_nonlinear_solution_time(self, t):
-        self._property['measurement_setter'](t)
-        self._property['observation_time'] = t
-
-
-    def _reset_measurement_time(self):
-        '''Reset the measurement time to the current time. If the current time
-        is `None` then invalidate/null the current nonlinear solution instead.
-
-        Notes
-        -----
-        This function is intended to be called for resetting the measurements
-        at the current time in case the measurement time has been overriden.
-
-        '''
-
-        if self._property['observation_time'] is not None:
-            self._override_measurement_time(self._property['observation_time'])
+        if self._is_missing_dFdu_mtx:
+            lhs, rhs = assemble_system(self._dFdu, rhs,
+                self._bcs_zro, A_tensor=self._dFdu_mtx)
+            self._is_missing_dFdu_mtx = False
         else:
-            # Trying to set measurements for time `None` is too risky.
-            # It is safer to invalidate the current solution instead.
-            self._reset_nonlinear_solution()
-
-
-    def _override_measurement_time(self, t):
-        '''Try to set measurements at time `t` without changing `observation_time`.
-        If an exception is raised, try to reset measurements at `observation_time`.
-        If this also fails then invalidate the current nonlinear solution.
-
-        Notes
-        -----
-        This function is intended to be used for the evaluation of measurements
-        at arbitrary observation times without changing the nonlinear solution.
-        This means the measurements must finally be reset at the original time.
-
-        '''
-
-        try:
-            self._property['measurement_setter'](t)
-        except:
-            # Could not set measurements at time `t`.
-            # Try to reset the previous measurements.
-            if self._property['observation_time'] == t:
-                # No point in attempting to reset time.
-                # Just invalidate the current soluton.
-                self._reset_nonlinear_solution()
-            else:
-                try:
-                    self._property['measurement_setter'](
-                        self._property['observation_time'])
-                except:
-                    # Since the measurement could not be reset,
-                    # invalidate the current nonlinear solution.
-                    self._reset_nonlinear_solution()
-
-            raise ValueError('Could not override measurement '
-                             f'time for argument `t = {t}`.')
-
-
-    def _std_observation_times(self, observation_times):
-        '''Return `observation_times` as a tuple of numerical values.'''
-
-        if not isinstance(observation_times, tuple):
-            try: observation_times = tuple(observation_times)
-            except: observation_times = (observation_times,)
-
-        if not all(isinstance(t, NUMERIC_TYPES) for t in observation_times):
-            for numeric_type in NUMERIC_TYPES:
-
-                tmp = tuple(numeric_type(t) for t in observation_times)
-
-                if tmp == observation_times:
-                    observation_times = tmp
-                    break
-
-            else:
-                raise TypeError('Parameter `observation_times` must be '
-                                'a (sequence of) numerical value(s).')
-
-        return observation_times
-
-
-    def _assemble_dFdu_and_rhs_with_bcs(self, rhs_form):
-        '''Assemble `dFdu` and `rhs_form`, and apply homogenized BC's.
-        Assembled `dFdu` will be symmetric.'''
-
-        lhs = self._assembled['dFdu']
-
-        if lhs is None:
-            lhs, rhs = assemble_system(self._dFdu, rhs_form, self._bcs_zro)
-            self._assembled['dFdu'] = lhs
-        else:
-            rhs = assemble(rhs_form)
+            lhs = self._dFdu_mtx
+            rhs = assemble(rhs)
             rhs[self._bcs_dof] = 0.0
 
         return lhs, rhs
 
 
-    def _assemble_dFdu_with_bcs(self):
-        '''Assemble `dFdu` and apply homogenized BC's.
-        Assembled `dFdu` will be unsymmetric.'''
-
-        lhs = self._assembled['dFdu']
-
-        if lhs is None:
-            lhs = assemble(self._dFdu)
-            for bc in self._bcs_zro: bc.apply(lhs)
-            self._assembled['dFdu'] = lhs
-
-        return lhs
-
-
-    def _compute_z(self):
-        '''Solve the adjoint problem.
-
-        Warning
-        -------
-        There seems to be a problem assembling the bilinear form `dFdu` and the
-        linear form `dJdu` using the function `dolfin.assemble_system` when the
-        integration subdomains in `dFdu` and `dJdu` are different. In this case,
-        FEniCS throws a warning and goes on to assume the integration domain for
-        `dJdu` to be the same as that of `dFdu`, which is generally wrong. The
-        way around this problem is to assemble `dFdu` and `dJdu` separately by
-        calling the `dolfin.assemble` function. Unfortunately, the assembled
-        `dFdu` becomes unsymmetric after imposition of the boundary conditions.
-
-        '''
-
-        lhs = self._assemble_dFdu_with_bcs()
-
-        if not self.parameters_inverse_solver['is_symmetric_form_dFdu']:
-            lhs = dolfin.PETScMatrix(dolfin.as_backend_type(lhs).mat().transpose())
-
-        rhs = self._assemble_dJdu()
-        rhs[self._bcs_dof] = 0.0
-
+    def _compute_z(self, rhs):
+        '''Compute adjoint variable.'''
+        lhs, rhs = self._assemble_tangent_system(rhs)
         self._linear_solver.solve(lhs, self._z.vector(), rhs)
-
-        self._z.vector()[self._bcs_dof] = 0.0
-        self._property['is_expired_z'] = False
+        self._is_missing_z = False
 
 
     def _compute_dudv(self, dFdv, dudv):
-        '''Compute primary field derivatives.'''
+        '''Compute displacement derivatives with respect to variables.'''
 
-        lhs, rhs = self._assemble_dFdu_and_rhs_with_bcs(-dFdv[0])
+        lhs, rhs = self._assemble_tangent_system(-dFdv[0])
         self._linear_solver.solve(lhs, dudv[0].vector(), rhs)
 
         for dudv_i, dFdv_i in zip(dudv[1:], dFdv[1:]):
+
             rhs = assemble(-dFdv_i); rhs[self._bcs_dof] = 0.0
             self._linear_solver.solve(lhs, dudv_i.vector(), rhs)
 
 
     def _compute_dudm(self):
-        '''Compute primary field sensitivities.'''
+        '''Compute displacement derivatives with respect to model parameters.'''
         self._compute_dudv(self._dFdm, self._dudm)
-        self._property['is_expired_dudm'] = False
+        self._is_missing_dudm = False
 
 
     def _compute_d2udm2(self):
-        '''Compute second order primary field sensitivities. Note, since
-        `d2udm2` is symmetric, only the upper triangular part is stored.
-        '''
+        '''Compute second order displacement derivatives with respect to model
+        parameters. Note, since `d2udm2` is symmetric, only the upper triangular
+        part is stored.'''
 
-        if self._property['is_expired_dudm']:
-            self._compute_dudm()
-
-        lhs = self._assembled['dFdu']
-        assert lhs is not None
+        if self._is_missing_dudm or self._is_missing_dFdu_mtx:
+            self._compute_dudm() # -> self._dudm, self._dFdu_mtx
 
         for i, dudm_i in enumerate(self._dudm, start=0):
             for j, dudm_j in enumerate(self._dudm[i:], start=i):
 
-                rhs = -assemble(self._d2Fdm2[i][j-i] + action(action(self._d2Fdu2, dudm_j), dudm_i))
-
-                try: rhs -= assemble(action(self._d2Fdudm[j], dudm_i))
-                except IndexError: pass # The action is zero
-                try: rhs -= assemble(action(self._d2Fdudm[i], dudm_j))
-                except IndexError: pass # The action is zero
+                rhs = - (
+                    assemble(self._d2Fdm2[i][j-i]
+                        + action(action(self._d2Fdu2, dudm_j), dudm_i))
+                    + assemble(self._d2Fdudm[j])*(dudm_i.vector())
+                    + assemble(self._d2Fdudm[i])*(dudm_j.vector()))
 
                 rhs[self._bcs_dof] = 0.0
 
-                self._linear_solver.solve(lhs, self._d2udm2[i][j-i].vector(), rhs)
+                self._linear_solver.solve(self._dFdu_mtx,
+                    self._d2udm2[i][j-i].vector(), rhs)
 
-        self._property['is_expired_d2udm2'] = False
+        self._is_missing_d2udm2 = False
 
 
     def _factory_compute_dudv(self, dFdv):
-        '''Factory for computing the first order derivatives
-        of the primary field field with respect to variables.
-        '''
+        '''Factory for computing the first order derivatives of the
+        displacement field with respect to variables.'''
 
         dudv = tuple(Function(self._V) for _ in dFdv)
 
         def compute_dudv():
-            '''Compute the primary field derivatives.'''
+            '''Compute derivatives of displacement field'''
             self._compute_dudv(dFdv, dudv)
 
         return compute_dudv, dudv
@@ -648,8 +367,7 @@ class InverseSolverBasic:
 
     def _factory_compute_dudv_d2udmdv(self, dFdv):
         '''Factory for computing first and second order mixed derivatives of
-        the primary field with respect to the model parameters and variables.
-        '''
+        displacement field with respect to model parameters and variables.'''
 
         dudv = tuple(Function(self._V) for _ in dFdv)
         d2udmdv = tuple(tuple(Function(self._V)
@@ -660,58 +378,111 @@ class InverseSolverBasic:
             for dFdv_i in dFdv)
 
         def compute_dudv_d2udmdv():
-            '''Compute the first and second order mixed derivatives of the
-            primary field with respect to the model parameters and variables.
-            '''
+            '''Compute first and second order mixed derivatives of displacement
+            field with respect to model parameters and variables.'''
 
             self._compute_dudv(dFdv, dudv)
 
-            if self._property['is_expired_dudm']:
+            if self._is_missing_dudm:
                 self._compute_dudm()
-
-            lhs = self._assembled['dFdu']
-            assert lhs is not None
 
             for i, dudv_i in enumerate(dudv):
                 for j, dudm_j in enumerate(self._dudm):
 
-                    rhs = -assemble(d2Fdmdv[i][j] + action(action(self._d2Fdu2, dudv_i), dudm_j))
-
-                    try: rhs -= assemble(action(self._d2Fdudm[j], dudv_i))
-                    except IndexError: pass # The action is zero
-                    try: rhs -= assemble(action(d2Fdudv[i], dudm_j))
-                    except IndexError: pass # The action is zero
+                    rhs = - (
+                        assemble(d2Fdmdv[i][j]
+                            + action(action(self._d2Fdu2, dudv_i), dudm_j))
+                        + assemble(self._d2Fdudm[j])*(dudv_i.vector())
+                        + assemble(d2Fdudv[i])*(dudm_j.vector()))
 
                     rhs[self._bcs_dof] = 0.0
 
-                    self._linear_solver.solve(lhs, d2udmdv[i][j].vector(), rhs)
+                    self._linear_solver.solve(self._dFdu_mtx,
+                        d2udmdv[i][j].vector(), rhs)
 
         return compute_dudv_d2udmdv, dudv, d2udmdv
 
 
-    def _compute_DJDm_method_adjoint(self):
+    def solve_nonlinear_problem(self, t=None):
+        '''Solve non-linear problem at observation time.
+
+        Parameters
+        ----------
+        t : float or int or None (optional)
+            The time of the observation. Note, the `self._measurement_setter` is
+            assumed to be responsible for interpreting the value of `t`; however,
+            if the value is `None`, `self._measurement_setter` will not called.
+
+        '''
+
+        self._reset_checkpoints_nonlinear_solve()
+        print(self.view_model_parameters_as_array())
+        print([float(m_i.values()) for m_i in self._m])
+        # print(list(self._m))
+
+        if t is not None:
+            self._measurement_setter(t)
+            self._t = t
+        print(t)
+
+        n, b = self._nonlinear_solver.solve()
+
+        if not b:
+            logger.error('Nonlinear solver failed to converge')
+
+        return n, b
+
+
+    def solve_adjoint_problem(self):
+        '''Solve adjoint problem at current time.'''
+        # self._compute_z(-self._dJdu)
+        self._adjoint_solver.solve()
+        self._is_missing_z = False
+
+
+    def factory_compute_DJDm(self, sensitivity_method='default'):
+        '''Factory for computing model cost sensitivities.'''
+
+        if sensitivity_method == 'default':
+            sensitivity_method = self.parameters_inverse_solver['sensitivity_method']
+
+        if sensitivity_method == self.COMPUTE_SENS_METHOD_ADJOINT:
+            compute_DJDm = self.compute_DJDm_method_adjoint
+
+        elif sensitivity_method == self.COMPUTE_SENS_METHOD_DIRECT:
+            compute_DJDm = self.compute_DJDm_method_direct
+
+        else:
+            raise KeyError("parameters_inverse_solver['sensitivity_method'] "
+                " = {self.parameters_inverse_solver['sensitivity_method']} "
+                "is not one of the available methods.")
+
+        return compute_DJDm
+
+
+    def compute_DJDm_method_adjoint(self):
         '''Compute the derivatives of the model cost `J` with respect to
         model parameters `m` using the adjoint method: `dJ/dm + dF/dm dJ/dF`.
 
         Notes
         -----
         The adjoint method requires one solve for any number of model parameters:
-            solve(adjoint(self._dFdu) == self._dJdu, self._z, bcs=self._bcs_zro)
+            solve(adjoint(self._dFdu) == -self._dJdu, self._z, bcs=self._bcs_zro)
 
         '''
 
         DJDm = np.zeros((self._n,), float)
 
-        if self._property['is_expired_z']:
-            self._compute_z()
+        if self._is_missing_z:
+            self.solve_adjoint_problem()
 
-        for i, (assembled_dJdm_i, dFdm_i) in enumerate(zip(self._assemble_dJdm(), self._dFdm)):
-            DJDm[i] += assembled_dJdm_i - assemble(dFdm_i).inner(self._z.vector())
+        for i, (dJdm_i, dFdm_i) in enumerate(zip(self._dJdm, self._dFdm)):
+            DJDm[i] += assemble(dJdm_i) + assemble(dFdm_i).inner(self._z.vector())
 
         return DJDm
 
 
-    def _compute_DJDm_method_direct(self):
+    def compute_DJDm_method_direct(self):
         '''Compute the derivatives of the model cost `J` with respect to
         model parameters `m` using a direct method: `dJ/dm + du/dm dJ/du`.
 
@@ -723,150 +494,165 @@ class InverseSolverBasic:
         '''
 
         DJDm = np.zeros((self._n,), float)
+        assembled_dJdu = assemble(self._dJdu)
 
-        assembled_dJdu = self._assemble_dJdu()
-        assembled_dJdm = self._assemble_dJdm()
-
-        if self._property['is_expired_dudm']:
+        if self._is_missing_dudm:
             self._compute_dudm()
 
-        for i, (assembled_dJdm_i, dudm_i) in enumerate(zip(assembled_dJdm, self._dudm)):
-            DJDm[i] += assembled_dJdm_i + assembled_dJdu.inner(dudm_i.vector())
+        for i, (dJdm_i, dudm_i) in enumerate(zip(self._dJdm, self._dudm)):
+            DJDm[i] += assemble(dJdm_i) + assembled_dJdu.inner(dudm_i.vector())
 
         return DJDm
 
 
-    def _compute_DJDm_D2JDm2_method_adjoint(self):
+    def factory_compute_DJDm_D2JDm2(
+        self, sensitivity_method='default', approximate_D2JDm2='default'):
+        '''Factory for computing model cost sensitivities.'''
+
+        if sensitivity_method == 'default':
+            sensitivity_method = self.parameters_inverse_solver['sensitivity_method']
+
+        if approximate_D2JDm2 == 'default':
+            approximate_D2JDm2 = self.parameters_inverse_solver['approximate_D2JDm2']
+
+        if sensitivity_method == self.COMPUTE_SENS_METHOD_ADJOINT:
+
+            def compute_DJDm_D2JDm2():
+                return self.compute_DJDm_D2JDm2_method_adjoint(approximate_D2JDm2)
+
+        elif sensitivity_method == self.COMPUTE_SENS_METHOD_DIRECT:
+
+            def compute_DJDm_D2JDm2():
+                return self.compute_DJDm_D2JDm2_method_direct(approximate_D2JDm2)
+
+        else:
+            raise RuntimeError('parameters_inverse_solver[\'sensitivity_method\']: '
+                "\"{self.parameters_inverse_solver['sensitivity_method']}\" "
+                'is not a valid parameter.')
+
+        return compute_DJDm_D2JDm2
+
+
+    def compute_DJDm_D2JDm2_method_adjoint(self, ignore_action_dJdu_d2udm2=False):
         '''Compute first order and second order derivatives of cost with respect
         to model parameters. This computation relies on the adjoint method.'''
 
         DJDm = np.zeros((self._n,), float)
-        D2JDm2 = np.zeros((self._n, self._n), float)
+        D2JDm2 = np.zeros((self._n,self._n), float)
 
-        assembled_dJdu = self._assemble_dJdu()
-        assembled_dJdm = self._assemble_dJdm()
+        assembled_dJdu = assemble(self._dJdu)
+        assembled_d2Jdu2 = assemble(self._d2Jdu2)
 
-        assembled_d2Jdm2  = self._assemble_d2Jdm2()
-        assembled_d2Jdudm = self._assemble_d2Jdudm()
-
-        if self._property['is_expired_dudm']:
+        if self._is_missing_dudm:
             self._compute_dudm()
 
-        if self._property['is_expired_z']:
-            self._compute_z()
+        if self._is_missing_z and not ignore_action_dJdu_d2udm2:
+            self.solve_adjoint_problem()
 
-        for i, (assembled_d2Jdudm_i, assembled_dJdm_i, d2Fdudm_i, dudm_i) in enumerate(
-                zip(assembled_d2Jdudm, assembled_dJdm, self._d2Fdudm, self._dudm)):
+        for i, (d2Jdudm_i, d2Fdudm_i, dJdm_i, dFdm_i, dudm_i) in enumerate(
+          zip(self._d2Jdudm, self._d2Fdudm, self._dJdm, self._dFdm, self._dudm)):
 
-            DJDm[i] = assembled_dJdm_i + assembled_dJdu.inner(dudm_i.vector())
+            # DJDm[i] = assemble(dJdm_i + action(self._dJdu, dudm_i)) # can fail
+            DJDm[i] = assemble(dJdm_i) + assembled_dJdu.inner(dudm_i.vector())
+            print("computing DJDm(i) for i= ", i)
 
-            for j, (assembled_d2Jdm2_ij, assembled_d2Jdudm_j, d2Fdm2_ij, d2Fdudm_j, dudm_j) in enumerate(
-              zip(assembled_d2Jdm2[i], assembled_d2Jdudm[i:], self._d2Fdm2[i], self._d2Fdudm[i:], self._dudm[i:]),
-              start=i):
+            for j, (d2Jdm2_ij, d2Fdm2_ij, d2Jdudm_j, d2Fdudm_j, dudm_j) in \
+              enumerate(zip(self._d2Jdm2[i], self._d2Fdm2[i], self._d2Jdudm[i:],
+              self._d2Fdudm[i:], self._dudm[i:]), start=i):
 
                 D2JDm2[i,j] = (
-                    assembled_d2Jdm2_ij
-                    + self._assemble_action_d2Jdu2(dudm_j, dudm_i)
-                    + assembled_d2Jdudm_j.inner(dudm_i.vector())
-                    + assembled_d2Jdudm_i.inner(dudm_j.vector())
+                    assemble(d2Jdm2_ij)
+                    + (assembled_d2Jdu2*dudm_j.vector()).inner(dudm_i.vector())
+                    + assemble(d2Jdudm_j).inner(dudm_i.vector())
+                    + assemble(d2Jdudm_i).inner(dudm_j.vector())
                     )
 
-                D2JDm2[i,j] -= assemble(d2Fdm2_ij + action(action(self._d2Fdu2, dudm_j), dudm_i)).inner(self._z.vector())
+                if not ignore_action_dJdu_d2udm2:
 
-                try: D2JDm2[i,j] -= assemble(action(d2Fdudm_j, dudm_i)).inner(self._z.vector())
-                except IndexError: pass # The action is zero
-                try: D2JDm2[i,j] -= assemble(action(d2Fdudm_i, dudm_j)).inner(self._z.vector())
-                except IndexError: pass # The action is zero
+                    D2JDm2[i,j] += (
+                        assemble(d2Fdm2_ij
+                         + action(action(self._d2Fdu2, dudm_j), dudm_i))
+                        + assemble(d2Fdudm_j)*(dudm_i.vector())
+                        + assemble(d2Fdudm_i)*(dudm_j.vector())
+                        ).inner(self._z.vector())
 
-            for j in range(i+1, self._n):
+            for j in range(i+1,self._n):
                 D2JDm2[j,i] = D2JDm2[i,j]
 
         return DJDm, D2JDm2
 
 
-    def _compute_DJDm_D2JDm2_method_direct(self):
+    def compute_DJDm_D2JDm2_method_direct(self, ignore_action_dJdu_d2udm2=False):
         '''Compute first order and second order derivatives of cost with respect
         to model parameters. This computation relies on the direct method.'''
 
         DJDm = np.zeros((self._n,), float)
-        D2JDm2 = np.zeros((self._n, self._n), float)
+        D2JDm2 = np.zeros((self._n,self._n), float)
 
-        assembled_dJdu = self._assemble_dJdu()
-        assembled_dJdm = self._assemble_dJdm()
+        assembled_dJdu = assemble(self._dJdu)
+        assembled_d2Jdu2 = assemble(self._d2Jdu2)
 
-        assembled_d2Jdm2  = self._assemble_d2Jdm2()
-        assembled_d2Jdudm = self._assemble_d2Jdudm()
-
-        if self._property['is_expired_dudm']:
+        if self._is_missing_dudm:
             self._compute_dudm()
 
-        if self._property['is_expired_d2udm2']:
+        if self._is_missing_d2udm2 and not ignore_action_dJdu_d2udm2:
             self._compute_d2udm2()
 
-        for i, (assembled_d2Jdudm_i, assembled_dJdm_i, dudm_i) in enumerate(
-                zip(assembled_d2Jdudm, assembled_dJdm, self._dudm)):
+        for i, (d2Jdudm_i, dJdm_i, dudm_i) in enumerate(
+          zip(self._d2Jdudm, self._dJdm, self._dudm)):
 
-            DJDm[i] = assembled_dJdm_i + assembled_dJdu.inner(dudm_i.vector())
+            # DJDm[i] = assemble(dJdm_i + action(self._dJdu, dudm_i)) # can fail
+            DJDm[i] = assemble(dJdm_i) + assembled_dJdu.inner(dudm_i.vector())
+            print("computing DJDm(i) for i= ", i)
 
-            for j, (assembled_d2Jdm2_ij, assembled_d2Jdudm_j, d2udm2_ij, dudm_j) in enumerate(
-              zip(assembled_d2Jdm2[i], assembled_d2Jdudm[i:], self._d2udm2[i], self._dudm[i:]),
+            for j, (d2Jdm2_ij, d2udm2_ij, d2Jdudm_j, dudm_j) in enumerate(
+              zip(self._d2Jdm2[i], self._d2udm2[i], self._d2Jdudm[i:], self._dudm[i:]),
               start=i):
 
                 D2JDm2[i,j] = (
-                    assembled_d2Jdm2_ij
-                    + self._assemble_action_d2Jdu2(dudm_j, dudm_i)
-                    + assembled_d2Jdudm_j.inner(dudm_i.vector())
-                    + assembled_d2Jdudm_i.inner(dudm_j.vector())
-                    )
+                    assemble(d2Jdm2_ij)
+                    + (assembled_d2Jdu2*dudm_j.vector()).inner(dudm_i.vector())
+                    + assemble(d2Jdudm_j).inner(dudm_i.vector())
+                    + assemble(d2Jdudm_i).inner(dudm_j.vector()))
 
-                D2JDm2[i,j] += assembled_dJdu.inner(d2udm2_ij.vector())
+                if not ignore_action_dJdu_d2udm2:
+                    D2JDm2[i,j] += assembled_dJdu.inner(d2udm2_ij.vector())
 
-            for j in range(i+1, self._n):
+            for j in range(i+1,self._n):
                 D2JDm2[j,i] = D2JDm2[i,j]
 
         return DJDm, D2JDm2
 
 
-    def _factory_compute_DJDm(self, sensitivity_method):
-        '''Factory for computing model cost sensitivities.'''
+    @staticmethod
+    def _compute_dm_method_newton(DJDm, D2JDm2):
+        '''Compute model parameter change using the Newton method.'''
+        dm = linalg.solve(D2JDm2, -DJDm, sym_pos=False)
+        return dm
 
-        if sensitivity_method == self.SENSITIVITY_METHOD_ADJOINT:
-            compute_DJDm = self._compute_DJDm_method_adjoint
-
-        elif sensitivity_method == self.SENSITIVITY_METHOD_DIRECT:
-            compute_DJDm = self._compute_DJDm_method_direct
-
-        else:
-            raise ValueError('Invalid sensitivity method '
-                             f'\"{sensitivity_method:s}\"')
-
-        return compute_DJDm
-
-
-    def _factory_compute_DJDm_D2JDm2(self, sensitivity_method):
-        '''Factory for computing model cost sensitivities.'''
-
-        if sensitivity_method == self.SENSITIVITY_METHOD_ADJOINT:
-            return self._compute_DJDm_D2JDm2_method_adjoint
-
-        elif sensitivity_method == self.SENSITIVITY_METHOD_DIRECT:
-            return self._compute_DJDm_D2JDm2_method_direct
-
-        else:
-            raise ValueError('Invalid sensitivity method '
-                             f'\"{sensitivity_method:s}\"')
+    @staticmethod
+    def _compute_dm_method_gradient(DJDm, D2JDm2):
+        '''Compute model parameter change using gradient-descent and line-search.'''
+        dm = -DJDm
+        d2J = D2JDm2.dot(dm).dot(dm)
+        if d2J > 0:
+            dm *= (dm.dot(dm)/d2J)
+        return dm
 
 
     def _factory_compute_dm(self):
         '''Factory for computing the change in model parameters.'''
 
-        solver_method = self.parameters_inverse_solver['solver_method']
-
-        if solver_method == self.INVERSE_SOLVER_METHOD_NEWTON:
+        if self.parameters_inverse_solver['solver_method'] == self.ITER_METHOD_NEWTON:
 
             def compute_dm(DJDm, D2JDm2):
                 try:
                     dm = self._compute_dm_method_newton(DJDm, D2JDm2)
+                    if D2JDm2.dot(dm).dot(dm) < 0.0:
+                        logger.warning('`D2JDm2[dm]` is not positive, i.e. '
+                            'model cost is not convex in direction of `dm`. '
+                            '(Could be okey for a saddle-point problem.)')
+
                 except linalg.LinAlgError:
                     logger.warning('Could not compute `dm` using '
                         'Newton method; trying gradient descent.')
@@ -874,11 +660,13 @@ class InverseSolverBasic:
 
                 return dm
 
-        elif solver_method == self.INVERSE_SOLVER_METHOD_GRADIENT:
+        elif self.parameters_inverse_solver['solver_method'] == self.ITER_METHOD_GRADIENT:
             compute_dm = self._compute_dm_method_gradient
 
         else:
-            raise ValueError(f'Invalid solver method \"{solver_method:s}\"')
+            raise RuntimeError('parameters_inverse_solver[\'solver_method\']: '
+                "\"{self.parameters_inverse_solver['solver_method']}\" "
+                'is not a valid parameter.')
 
         return compute_dm
 
@@ -886,28 +674,29 @@ class InverseSolverBasic:
     def _factory_constrain_dm(self):
         '''Factory for constraining the change in the model parameters.'''
 
-        absval_min = self.parameters_inverse_solver['absolute_tolerance']
-        rdelta_max = self.parameters_inverse_solver['maximum_relative_change']
+        delta_max = self.parameters_inverse_solver['model_parameter_delta_max']
+        delta_nrm = self.parameters_inverse_solver['model_parameter_delta_nrm']
 
-        if rdelta_max is not None:
-            if not (0.0 < rdelta_max < np.inf):
-                raise ValueError('Require positive `maximum_relative_change`')
+        if delta_max:
+            if not (0.0 < delta_max < np.inf):
+                raise ValueError('Expected inverse solver parameter: '
+                    '`model_parameter_delta_max` to be positive')
 
-            def constrain_dm(dm, m):
-                '''Constrain the maximum change in the model parameters.'''
+            if delta_nrm == 'L2':
+                def constrain_dm(dm, m):
+                    '''Constrain the change (max L2 change).'''
+                    delta = linalg.norm(dm)/linalg.norm(m)
+                    if delta > delta_max:
+                        dm *= delta_max/delta
+                    return dm
 
-                # rdelta = linalg.norm(dm) / linalg.norm(m)
-                # if rdelta > rdelta_max: dm *= rdelta_max/rdelta
-
-                absval = np.abs(m)
-                rdelta = np.abs(dm) / (absval + absval_min)
-                mask = (rdelta > rdelta_max) & (absval > absval_min)
-
-                if mask.any():
-                    ind = np.flatnonzero(mask)
-                    dm[ind] *= rdelta_max / rdelta[ind]
-
-                return dm
+            elif delta_nrm == 'L1':
+                def constrain_dm(dm, m):
+                    '''Constrain the change (max L1 change).'''
+                    delta = linalg.norm(dm,1)/linalg.norm(m,1)
+                    if delta > delta_max:
+                        dm *= delta_max/delta
+                    return dm
 
         else:
             def constrain_dm(dm, m):
@@ -917,161 +706,77 @@ class InverseSolverBasic:
         return constrain_dm
 
 
-    def assign_model_parameters(self, model_parameters, value_types=NUMERIC_TYPES):
-        '''Assign model parameters from a (nested) iterable. `model_parameters`
-        is effectively flattened and the values assigned from left to right.'''
-
-        self._reset_inverse_solution()
-        self._reset_nonlinear_solution()
-
-        if isinstance(model_parameters, np.ndarray):
-            model_parameters = model_parameters.tolist()
-
-        m = utility.list_values_from_iterable(model_parameters, value_types)
-
-        if self._n != len(m):
-            raise TypeError('Expected `model_parameters` to contain exactly '
-                f'{self._n} model parameter(s) but instead found {len(m)}.')
-
-        for self_m_i, m_i in zip(self._m, m):
-            self_m_i.assign(float(m_i))
-
-
-    def assign_observation_times(self, observation_times):
-        '''Assign observation times and reset inverse solution.'''
-
-        self._reset_inverse_solution()
-
-        if observation_times is None:
-            self._property['observation_times'] = (None,)
-        else:
-            self._property['observation_times'] = \
-                self._std_observation_times(observation_times)
-
-
-    def assign_measurement_setter(self, measurement_setter):
-        '''Assign measurement setter and reset inverse solution.
-
-        Parameters
-        ----------
-        measurement_setter : function-like that takes time as the argument
-            Function that sets all measurements at a given observation time.
-
-        '''
-
-        self._reset_inverse_solution()
-
-        if measurement_setter is None:
-            measurement_setter = lambda t: None
-
-        elif not callable(measurement_setter):
-            raise TypeError('Parameter `measurement_setter` must be '
-                            'a callable with time as the argument.')
-
-        self._property['measurement_setter'] = measurement_setter
-
-
-    def solve_nonlinear_problem(self, t=None):
-        '''Solve the nonlinear problem for time `t`.'''
-
-        self._reset_nonlinear_solution()
-
-        if t is not None:
-            self._set_nonlinear_solution_time(t)
-
-        n, b = self._nonlinear_solver.solve()
-
-        if not b:
-            logger.error(f'Nonlinear solver failed to converge '
-                         f'for time t={t} after n={n} iterations')
-
-        return n, b
-
-
-    def solve_forward_problem(self):
-        '''Solve nonlinear problem at each observation time and add up the model
-        cost sensitivities, which are to be used in updating model parameters.
+    def minimize_cost_forall(self, observation_times=None,
+        sensitivity_method='default', approximate_D2JDm2='default'):
+        '''Minimize model cost (on average) over the observation times.
 
         Returns
         -------
-        cumsum_DJDm : numpy.ndarray (1D) of float's
-            Cumulative gradient of the model cost over the observation times.
-        cumsum_D2JDm2 : numpy.ndarray (2D) of float's
-            Cumulative hessian of the model cost over the observation times.
+        m : numpy.ndarray (1D) of float's
+            Optimized model parameters over all observation times.
 
         '''
 
-        cumsum_DJDm = np.zeros((self._n,), float)
-        cumsum_D2JDm2 = np.zeros((self._n, self._n), float)
-
-        compute_DJDm_D2JDm2 = self._factory_compute_DJDm_D2JDm2(
-            self.parameters_inverse_solver['sensitivity_method'])
-
-        for t in self.observation_times:
-
-            self.solve_nonlinear_problem(t)
-            DJDm, D2JDm2 = compute_DJDm_D2JDm2()
-
-            if not np.isfinite(D2JDm2).all():
-                raise RuntimeError('Model cost sensitivities at time '
-                                   f'`t = {t}` have non-finite values.')
-
-            cumsum_DJDm += DJDm
-            cumsum_D2JDm2 += D2JDm2
-
-        self._property['cumsum_DJDm'] = cumsum_DJDm.copy()
-        self._property['cumsum_D2JDm2'] = cumsum_D2JDm2.copy()
-
-        return cumsum_DJDm, cumsum_D2JDm2
-
-
-    def solve_inverse_problem(self, atol=None, rtol=None):
-        '''Minimize model cost with respect to model parameters.
-
-        Returns
-        -------
-        num_iterations : int
-            Number of iterations.
-        is_converged : bool
-            Convergence status.
-
-        '''
-
-        self._property['is_converged'] = False
+        if observation_times is not None:
+            self.assign_observation_times(observation_times)
 
         logging_level = logger.getEffectiveLevel()
-        parameters = self.parameters_inverse_solver
+        params = self.parameters_inverse_solver
 
-        max_iterations = parameters['maximum_iterations']
-        max_divergences = parameters['maximum_divergences']
+        atol = params['absolute_tolerance']
+        rtol = params['relative_tolerance']
 
-        if atol is None: atol = parameters['absolute_tolerance']
-        if rtol is None: rtol = parameters['relative_tolerance']
+        max_iterations = params['maximum_iterations']
+        max_diverged = params['maximum_diverged_iterations']
+
+        if sensitivity_method == 'default':
+            sensitivity_method = params['sensitivity_method']
+
+        if approximate_D2JDm2 == 'default':
+            approximate_D2JDm2 = params['approximate_D2JDm2']
+
+        forward_solver = self.factory_forward_solver(
+            None, sensitivity_method, approximate_D2JDm2)
+
+        compute_dm = self._factory_compute_dm()
+        constrain_dm = self._factory_constrain_dm()
+        m = self.view_model_parameters_as_array()
 
         dm_old = None
         DJDm_old = None
         D2JDm2_old = None
         norm_DJDm_old = np.inf
 
-        num_divergences = 0
+        num_diverged = 0
         is_converged = False
 
-        DJDm, D2JDm2 = self.solve_forward_problem()
-        m = np.array(self.view_model_parameter_values())
+        cost_u_for_iteration = []
+        cost_f_for_iteration = []
+        cost_total_for_iteration = []
 
-        compute_dm = self._factory_compute_dm()
-        constrain_dm = self._factory_constrain_dm()
+        cost_for_each_iteration = [cost_u_for_iteration, cost_f_for_iteration, cost_total_for_iteration]
 
-        for num_iterations in range(1, max_iterations+1):
+        param_for_each_iteration = [0 for i in range(self._n)]
 
-            if logging_level <= logging.INFO:
-                print(f'\n*** Iteration #{num_iterations:d} ***\n')
+        for i in range(self._n):
+            param_for_each_iteration[i] = [m[i],]
+
+        for num_iterations in range(max_iterations):
+
+            try:
+                DJDm, D2JDm2 = forward_solver()
+            except:
+                print("No convergence in nonlinear FEM solver")
+                for i in cost_for_each_iteration:
+                    i.append(0) # The cost in the last iteration is set NULL
+                return m, (num_iterations + 1, is_converged,\
+                            cost_for_each_iteration, param_for_each_iteration)
 
             dm = compute_dm(DJDm, D2JDm2)
             dm = constrain_dm(dm, m)
 
-            norm_dm = sqrt(dm.dot(dm))
-            norm_DJDm = sqrt(DJDm.dot(DJDm))
+            norm_dm = linalg.norm(dm)
+            norm_DJDm = linalg.norm(DJDm)
 
             dJ = DJDm.dot(dm)
             d2J = D2JDm2.dot(dm).dot(dm)
@@ -1079,69 +784,95 @@ class InverseSolverBasic:
             DJDm_dm = dJ/norm_dm
             D2JDm2_dm = d2J/norm_dm**2
 
-            is_decreasing = DJDm_dm < 0.0
-            is_pathconvex = D2JDm2_dm > 0.0
-            is_converging = norm_DJDm < norm_DJDm_old
+            dircos_dm = -DJDm_dm/norm_DJDm
+            norm_dm_res = -DJDm_dm/D2JDm2_dm
+
+            dm_param = dm[range(self._n)]
+            m_param = m[range(self._n)]
+
+            is_decreasing = (DJDm_dm < 0.0)
+            is_pathconvex = (D2JDm2_dm > 0.0)
+            is_converging = (norm_DJDm < norm_DJDm_old)
+
+            cost_for_each_iteration [0].append(assemble(self._Ju))
+            cost_for_each_iteration [1].append(assemble(self._Jf))
+            cost_for_each_iteration [2].append(assemble(self._J))
 
             if logging_level <= logging.INFO:
+                print('\n\n*** Summary of Iteration \n\n')
+                print(num_iterations, '/', max_iterations)
+                print('  "norm(DJDm_old)"     :', norm_DJDm_old)
+                print('  "norm(DJDm)"	        :', norm_DJDm, '\n')
+                print('  "DJDm[dm]"           :', DJDm_dm, '\n')
+                print('  "D2JDm2[dm]"         :', D2JDm2_dm, '\n')
+                print('  "model param.,  m"	:', m, '\n')
+                print('  "model param.,  dm"	:', dm, '\n')
+                print('  "actual model param.,  m"	:', m+dm, '\n')
+                # m_sum = m + dm
+                # m_sum[0:4] = np.abs(m_sum[0:4])
+                # print('  "actual model param., sum (m)"	:', m_sum, '\n')
+                print('  "direction cosine"   :', dircos_dm, '\n')
+                print('  "residual est., dm"  :', norm_dm_res, '\n')
+                print('  "is cost convex"     :', is_pathconvex, '\n')
+                print('  "is cost decreasing" :', is_decreasing, '\n')
+                print('  "is cost converging" :', is_converging, '\n')
+                print('  "the cost of the last observation time" :', cost_for_each_iteration [2][-1], '\n')
+					# '  {"det(F)"}				:', assemble(det(self._F)))
+                # print(
+					# num_iterations, '/', max_iterations, '\n'
 
-                print('\n'
-                    f'  norm(DJDm_old)     :{norm_DJDm_old: g}\n'
-                    f'  norm(DJDm)         :{norm_DJDm: g}\n\n'
-                    f'  DJDm[dm]           :{DJDm_dm: g}\n'
-                    f'  D2JDm2[dm]         :{D2JDm2_dm: g}\n\n'
-                    f'  model param.,  m   : {m}\n'
-                    f'  delta param., dm   : {dm}\n\n'
-                    f'  is path convex     : {is_pathconvex}\n'
-                    f'  is cost decreasing : {is_decreasing}\n'
-                    f'  is cost converging : {is_converging}\n'
-                    , flush=True)
+					# '
+					 # )
 
-                if dm_old is not None:
+            if logging_level <= logging.DEBUG and dm_old is not None:
 
-                    # Check if the directional second derivative of `J` can estimate the
-                    # change in gradient of `J` between previous and current iterations.
+                # Check if the directional second derivative of `J` can estimate the
+                # change in gradient of `J` between previous and current iterations.
 
-                    dDJDm_exact = DJDm - DJDm_old
-                    dDJDm_estim = (D2JDm2_old + D2JDm2).dot(dm_old) * 0.5
-                    # err_dDJDm = linalg.norm(dDJDm_estim-dDJDm_exact)/linalg.norm(dDJDm_exact)
+                dDJDm_exa = DJDm - DJDm_old
+                dDJDm_est = (D2JDm2_old + D2JDm2).dot(dm_old) * 0.5
+                # err_dDJDm = linalg.norm(dDJDm_est-dDJDm_exa)/linalg.norm(dDJDm_exa)
 
-                    print(f'  {"estimated change in DJDm, i.e. D2JDm2[dm_old]":s} : {dDJDm_estim}\n'
-                          f'  {"actual change in DJDm, i.e. DJDm_new-DJDm_old":s} : {dDJDm_exact}\n'
-                          , flush=True)
+                print('  {"estimated change in DJDm, i.e. D2JDm2[dm_old]":s} : {dDJDm_est}\n'
+                      '  {"actual change in DJDm, i.e. DJDm_new-DJDm_old":s} : {dDJDm_exa}\n'
+                      , flush=True)
 
-            if np.all(np.abs(dm) < atol):
-                logger.info('Iterations converged in absolute tolerance')
+            if np.all(np.abs(dm) < np.abs(m)*rtol + atol):
+            # if np.all(np.abs(dm_param) < np.abs(m_param)*rtol + atol):
                 is_converged = True
                 break
 
-            if np.all(np.abs(dm) < np.abs(m)*rtol):
-                logger.info('Iterations converged in relative tolerance')
-                is_converged = True
-                break
+            if norm_DJDm > norm_DJDm_old:
 
-            if norm_DJDm_old < norm_DJDm:
-                num_divergences += 1
+                num_diverged += 1
 
-                logger.warning('Model cost diverged '
-                    f'({num_divergences}/{max_divergences})')
-
-                if num_divergences > max_divergences:
-                    logger.error('Model cost diverged maximum number of times')
-
-                    m -= dm_old
-
-                    for m_i, m_i_new in zip(self._m, m):
-                        m_i.assign(m_i_new)
-
-                    self.solve_nonlinear_problem()
-
-                    self._property['cumsum_DJDm'] = DJDm_old
-                    self._property['cumsum_D2JDm2'] = D2JDm2_old
-
+                if num_diverged < max_diverged:
+                    logger.warning('Model cost diverged '
+                        '{num_diverged} time(s).')
+                else:
+                    logger.error('Model cost diverged maximum '
+                        'number of times ({max_diverged}).')
                     break
 
+                # if approximate_D2JDm2 and num_iterations < max_iterations:
+                    # logger.warning('Continue without approximating `D2JDm2 = False`.')
+
+                    # approximate_D2JDm2 = True
+                    # num_diverged = 0 # reset
+                    # dm = -dm_old # backtrace
+
+                    # forward_solver = self.factory_forward_solver(
+                        # None, sensitivity_method, approximate_D2JDm2)
+
             m += dm
+
+            for i in range(self._n):
+                param_for_each_iteration[i].append(m[i])
+            # m[0:4] = np.abs(m[0:4]) #if m's elements are negative, energy density is negtive as well and so the PDE can't be solved
+            # for i in range(4):
+                # j = 0
+                # while ((m[i] + dm[i]*10**(-j)) < 0): j += 1
+                # m[i] += dm[i]*10**(-j)
 
             for m_i, m_i_new in zip(self._m, m):
                 m_i.assign(m_i_new)
@@ -1151,112 +882,840 @@ class InverseSolverBasic:
             D2JDm2_old = D2JDm2
             norm_DJDm_old = norm_DJDm
 
-            DJDm, D2JDm2 = self.solve_forward_problem()
+        else:
+            logger.warning('Inverse solver failed to converge '
+                'after {max_iterations+1} iterations.')
 
-        if not is_converged:
-            logger.error('Inverse solver did not converge after '
-                         f'{num_iterations} iterations.')
+        self._cumsum_DJDm = DJDm
+        self._cumsum_D2JDm2 = D2JDm2
+        self._is_converged = is_converged
 
-        self._property['is_converged'] = is_converged
+        if not is_converged and params['error_on_nonconvergence']:
+            input('Inverse solver did not converge. Do you like to continue ?')
 
-        return num_iterations, is_converged
-
-
-    def require_nonlinear_solution(self, t=None):
-        '''Check if the nonlinear problem needs to be solved for time `t`.'''
-        return (t is not None and t != self._property['observation_time']) \
-               or self._property['observation_time'] is None
+        return m, (num_iterations+1, is_converged, cost_for_each_iteration, param_for_each_iteration)
 
 
-    def observe_J(self, t=None):
-        '''Model cost at time `t`.'''
+    def minimize_cost_foreach(self, observation_times=None,
+        sensitivity_method='default', approximate_D2JDm2='default'):
+        '''Minimize cost for each of the observation times.
 
-        if self.require_nonlinear_solution(t):
-            self.solve_nonlinear_problem(t)
+        Returns
+        -------
+        m : list of numpy.ndarray's (1D) of float's
+            Optimized model parameters for each observation time.
 
-        return self._assemble_J()
+        '''
+
+        observation_times = \
+            self._observation_times_getdefault(observation_times)
+
+        m = []
+
+        for t in observation_times:
+            m_t, (n, b) = self.minimize_cost_forall(
+                t, sensitivity_method, approximate_D2JDm2)
+            m.append(m_t)
+
+        if m: # usually more convenient to use first index for parameter
+            m = [np.ascontiguousarray(m_i) for m_i in np.stack(m, 0).T]
+
+        # Assign old observation times and reset checkpoints
+        self.assign_observation_times(observation_times)
+
+        return m, (n, b)
 
 
-    def observe_DJDm(self, t=None):
-        '''Model cost gradient at time `t`.'''
+    def factory_forward_solver(self, observation_times=None,
+        sensitivity_method='default', approximate_D2JDm2='default'):
+        '''Factory for solving the forward problem.'''
 
-        if self.require_nonlinear_solution(t):
-            self.solve_nonlinear_problem(t)
+        observation_times = \
+            self._observation_times_getdefault(observation_times)
 
-        compute_DJDm = self._factory_compute_DJDm(
-            self.parameters_inverse_solver['sensitivity_method'])
+        compute_DJDm_D2JDm2 = \
+            self.factory_compute_DJDm_D2JDm2(sensitivity_method, approximate_D2JDm2)
 
-        return compute_DJDm()
+        def forward_solver():
+            '''Solve forward problem.
+
+            Returns
+            -------
+            DJDm : numpy.ndarray (1D) of float's
+                Cumulative gradient of the model cost over the observation times.
+            D2JDm2 : numpy.ndarray (2D) of float's
+                Cumulative hessian of the model cost over the observation times.
+
+            '''
+            print(self._u([0, 20]))
+            DJDm = 0.0
+            D2JDm2 = 0.0
+
+            self._u.vector()[:] = 0.0
+            for t in observation_times:
+
+                n, b = self.solve_nonlinear_problem(t)
+
+                dDJDm, dD2JDm2 = compute_DJDm_D2JDm2()
+
+                if not b and not np.isfinite(dD2JDm2).all():
+                    raise RuntimeError('Model cost sensitivities '
+                        'at time t={t} have non-finite values.')
+
+                DJDm += dDJDm
+                D2JDm2 += dD2JDm2
+            # self._u.vector()[:] = 0.0
+
+            return DJDm, D2JDm2
 
 
-    def observe_u(self, t=None, copy=True):
-        '''Primary field solution at time `t`.'''
 
-        if self.require_nonlinear_solution(t):
-            self.solve_nonlinear_problem(t)
+        return forward_solver
 
-        return self._u.copy(True) if copy else self._u
+
+    def solve_forward_problem(self, observation_times=None,
+        sensitivity_method='default', approximate_D2JDm2='default'):
+        '''Solve forward problem.
+
+        Returns
+        -------
+        DJDm : numpy.ndarray (1D) of float's
+            Cumulative gradient of the model cost over the observation times.
+        D2JDm2 : numpy.ndarray (2D) of float's
+            Cumulative hessian of the model cost over the observation times.
+
+        '''
+
+        DJDm, D2JDm2 = self.factory_forward_solver(
+            observation_times, sensitivity_method, approximate_D2JDm2)()
+
+        if observation_times is None:
+            self._cumsum_DJDm = DJDm.copy()
+            self._cumsum_D2JDm2 = D2JDm2.copy()
+
+        return DJDm, D2JDm2
+
+
+    @staticmethod
+    def _sum_actions(dfdv, dv):
+        '''Try to compute the sum of actions of pairs dfdv_i and dv_i. If an action
+        can not be computed due to `IndexError` exception, assume the action is zero.
+        '''
+        dfdv_dv = 0
+        for dfdv_i, dv_i in zip(dfdv, dv):
+            try:
+                dfdv_dv_i = action(dfdv_i, dv_i)
+            except IndexError:
+                pass # assume `dfdv_dv_i` is zero
+            else:
+                dfdv_dv += dfdv_dv_i
+        return dfdv_dv
+
+
+    def factory_observe_DmDv(self, vars, dv=None, ignore_dFdv=False, ignore_dJdv=False):
+        '''Factory for computing model parameter sensitivities with respect to
+        variabes for different observation times.
+
+        Important
+        ---------
+        Note that the sensitivities are local quantities, i.e. they represent the
+        sensitivities due to local changes in the variables at a given time. The
+        total (or cumulative) sensitivities can be obtained by summing all local
+        sensitivities over the observation times.
+
+        Parameters
+        ----------
+        vars : sequence of dolfin.Constant's or dolfin.Function's
+            Obtain model parameter sensitivities with respect to each of the
+            variables in `vars`.
+
+        dv : sequence of float's, int's, dolfin.Constant's, or dolfin.Function's
+            Compute the directional (Getaux) sensitivity in the direction of `dv`.
+
+            Note, in case `vars` are functions only the directional sensitivity
+            can be computed. The one exception when non-directional sensitvities
+            can be computed is when `vars` consists of a single function and the
+            parameter `ignore_dFdv` can be assumed to be `True`.
+
+            Note, if `dv` consists of `dolfin.Constant`s or `dolfin.Function`s,
+            then such type objects can be updated externally at any time.
+
+        ignore_dFdv : bool
+            Whether to ignore the partial interaction of `vars` with the weak form.
+
+        ignore_dJdv : bool
+            Whether to ignore the partial interaction of `vars` with the model cost.
+
+        Returns
+        -------
+        observe_DmDv() : function
+            Compute local model parameter sensitivities with respect to variables.
+
+        '''
+
+        if ignore_dFdv and ignore_dJdv:
+            logger.warning('Parameters `ignore_dFdv` and `ignore_dJdv` can not '
+                           'both be `True`; at least one should be `False`.')
+
+        not_ignore_dFdv = not ignore_dFdv
+        not_ignore_dJdv = not ignore_dJdv
+
+        vars = list_variables_from_iterable(vars, (Constant,Function))
+
+        if all(isinstance(v_i, Constant) for v_i in vars):
+
+            if not_ignore_dFdv: dFdv = tuple(diff(self._F, v_i) for v_i in vars)
+            if not_ignore_dJdv: dJdv = tuple(diff(self._J, v_i) for v_i in vars)
+
+            if dv is not None:
+
+                if isinstance(dv, np.ndarray):
+                    dv = dv.tolist()
+
+                dv = list_variables_from_iterable(dv, (float,int,Constant))
+
+                if len(dv) != len(vars):
+                    raise TypeError('Expected parameter `dv` to contain {len(vars)} '
+                                    '`dolfin.Constant`(s) or `float`(s) but instead the '
+                                    'number of such types found in `dv` was {len(dv)}.')
+
+                if not_ignore_dFdv: dFdv = (sum(dv_i*dFdv_i for dFdv_i,dv_i in zip(dFdv,dv)),)
+                if not_ignore_dJdv: dJdv = (sum(dv_i*dJdv_i for dJdv_i,dv_i in zip(dJdv,dv)),)
+
+        elif all(isinstance(v_i, Function) for v_i in vars):
+
+            if dv is None:
+
+                if not_ignore_dFdv:
+                    raise RuntimeError('Unable to compute the sensitivities with respect '
+                                       'to a `dolfin.Function`. The sensitivities can only '
+                                       'be computed provided the paramter `ignore_dFdv` is '
+                                       '`True`. Alternativelly, the directional sensitivity '
+                                       'can be computed by providing parameter `dv`.')
+
+                if len(vars) != 1:
+                    raise RuntimeError('Parameter `vars` should contain a single '
+                                       '`dolfin.Function` if no `dv` is provided.')
+
+            if not_ignore_dFdv: dFdv = tuple(derivative(self._F, v_i) for v_i in vars)
+            if not_ignore_dJdv: dJdv = tuple(derivative(self._J, v_i) for v_i in vars)
+
+            if dv is not None:
+
+                dv = list_variables_from_iterable(dv, Function)
+
+                if len(dv) != len(vars):
+                    raise TypeError('Expected parameter `dv` to contain {len(vars)} '
+                                    '`dolfin.Function`(s) but instead the number of '
+                                    'such type objects found in `dv` was {len(dv)}.')
+
+                if not_ignore_dFdv:
+                    dFdv_dv = self._sum_actions(dFdv, dv)
+                    if dFdv_dv != 0: dFdv = (dFdv_dv,)
+                    else: not_ignore_dFdv = False
+
+                if not_ignore_dJdv:
+                    dJdv_dv = self._sum_actions(dJdv, dv)
+                    if dJdv_dv != 0: dJdv = (dJdv_dv,)
+                    else: not_ignore_dJdv = False
+
+        else:
+            raise TypeError('Parameter `vars` must exclusively contain either '
+                            '`dolfin.Constant`(s) or `dolfin.Function`(s).')
+
+        if not_ignore_dFdv:
+            compute_dudv_d2udmdv, dudv, d2udmdv = \
+                self._factory_compute_dudv_d2udmdv(dFdv)
+
+        if not_ignore_dJdv:
+            d2Jdudv = tuple(derivative(dJdv_i, self._u) for dJdv_i in dJdv)
+            d2Jdmdv = tuple(tuple(diff(dJdv_i, m_j) for m_j in self._m) for dJdv_i in dJdv)
+
+        if not_ignore_dJdv and (not_ignore_dFdv is False) \
+            and isinstance(vars[0], Function) and dv is None:
+
+            def compute_D2JDmDv(i, j):
+                J = assemble(d2Jdmdv[i][j]) \
+                    + assemble(d2Jdudv[i])*self._dudm[j].vector()
+                return J # numpy.ndarray of float's
+
+        else:
+
+            def compute_D2JDmDv(i, j):
+                J = 0
+                if not_ignore_dJdv:
+                    J += assemble(d2Jdmdv[i][j])
+                    J += assemble(d2Jdudv[i]).inner(self._dudm[j].vector())
+                if not_ignore_dFdv:
+                    J += assemble(self._dJdu).inner(d2udmdv[i][j].vector())
+                    J += assemble(self._d2Jdudm[j]).inner(dudv[i].vector())
+                    J +=(assemble(self._d2Jdu2)*dudv[i].vector()).inner(self._dudm[j].vector())
+                return J # float
+
+        if not (not_ignore_dFdv or not_ignore_dJdv):
+            logger.warning('All derivatives will be zero.')
+
+        D2JDm2 = None # to be the alias for the current `self._cumsum_D2JDm2`
+        inv_D2JDm2 = None # to compute `linalg.inv(D2JDm2)` if `D2JDm2` changes
+
+        def observe_DmDv(t=None):
+            '''Compute the local model parameter sensitivities with respect to
+            variables at a given observation time.
+
+            Parameters
+            ----------
+            t : float or int or None (optional)
+                Time at which to compute the model parameter sensitivities.
+                If `t` is `None`, `t` defaults to current time.
+
+            Returns
+            -------
+            DmDv : numpy.ndarray (1D or 2D) of float's
+                Local model parameter sensitivities with respect to variables at
+                observation time `t`.
+
+            Notes
+            -----
+            If `vars` contains `dolfin.Constant`s and `dv` is `None`, the array
+            `DmDv` will have shape `(NUM_MODEL_PARAMETERS, NUM_VARIABLES)`. If
+            `vars` contains `dolfin.Function`s (or `dolfin.Constant`s) and `dv`
+            contains `dolfin.Function`s (or `dolfin.Constant`s), array `DmDv`
+            will have shape `(NUM_MODEL_PARAMETERS,)`. If `vars` has a single
+            `dolfin.Function` and `dv` is `None`, array `DmDv` will have shape
+            `(NUM_MODEL_PARAMETERS, NUM_BASIS_FUNCTIONS)`.
+
+            '''
+
+            nonlocal D2JDm2
+            nonlocal inv_D2JDm2
+
+            if t is None:
+                if self._t is None:
+                    raise RuntimeError('Can not specify time parameter '
+                                       '`t = None`. Require at least once '
+                                       'to solve for an explicit time `t`.')
+                t = self._t
+
+            if not self._is_converged:
+                logger.warning('Inverse solver is not converged.')
+
+            if self._cumsum_D2JDm2 is None:
+                logger.info('Solving forward problem for `D2JDm2`.')
+                self.solve_forward_problem() # -> self._cumsum_D2JDm2
+
+            if D2JDm2 is not self._cumsum_D2JDm2:
+                D2JDm2 = self._cumsum_D2JDm2
+
+                try: # could be ill-conditioned
+                    inv_D2JDm2 = linalg.inv(-D2JDm2)
+                except linalg.LinAlgError:
+                    inv_D2JDm2 = linalg.pinv(-D2JDm2)
+
+            if t != self._t:
+                self.solve_nonlinear_problem(t)
+
+            if self._is_missing_dudm:
+                self._compute_dudm()
+
+            if not_ignore_dFdv:
+                compute_dudv_d2udmdv()
+
+            DmDv = []
+
+            for i in range(len(vars) if dv is None else 1):
+                D2JDmDv_i = [compute_D2JDmDv(i,j) for j in range(self._n)]
+                DmDv.append(inv_D2JDm2.dot(np.array(D2JDmDv_i, dtype=float)))
+
+            # Reorder indexing into `DmDv`:
+            # current indexing: DmDv[i_dv][j_dm]
+            # new indexing: DmDv[i_dm][j_dv]
+
+            DmDv = np.array([[DmDv[j_dv][i_dm]
+                for j_dv in range(len(DmDv))]
+                for i_dm in range(self._n)])
+
+            if dv is not None or DmDv.ndim > 2:
+                DmDv = DmDv.squeeze(axis=1)
+
+            # # Model parameter residual
+            # dm_residual = inv_D2JDm2.dot(DJDm).tolist()
+            # logger.info('dm_residual: ' + repr(dm_residual))
+
+            return DmDv
+
+        return observe_DmDv
+
+
+    def factory_observe_DuDv(self, vars, DmDv, dv=None, ignore_dFdv=False):
+        '''Factory for computing the displacement sensitivities with respect
+        to variables for different observation times.
+
+        Notes
+        -----
+        The derivative `DuDv` at time `t` is computed according to this rule:
+            Du/Dv_i = du/dv_i + Dm_j/Dv_i du/dm_j
+
+        Note, `DmDv` are the cumulative sensitivities that are obtained by
+        summing the local sensitivities over all observation times.
+
+        Parameters
+        ----------
+        vars : sequence of dolfin.Constant('s) or `dolfin.Function(`s)
+            Obtain displacement sensitivities with respect to each of the
+            variables in `vars`.
+
+        DmDv : numpy.ndarray (1D or 2D) of float's
+            The cumulative sensitivities of the model parameters with respect to
+            variables. The length of `DmDv` in the first dimension must always
+            equal the number of model parameters. The length of `DmDv` in its
+            second dimension must equal the length of `vars` if `dv` is `None`;
+            otherwise, if `dv` is not `None`, then either the length of `DmDv`
+            in its second dimension must be `1` or `DmDv` must be a 1D array.
+
+        dv : sequence of float's, int's, dolfin.Constant's, or dolfin.Function's
+            Compute the directional (Getaux) sensitivity in the direction of `dv`.
+
+            Note, in case `vars` are functions only the directional sensitivity
+            can be computed. The one exception when non-directional sensitvities
+            can be computed is when `vars` consists of a single function and the
+            parameter `ignore_dFdv` can be assumed to be `True`.
+
+            Note, if `dv` consists of `dolfin.Constant`s or `dolfin.Function`s,
+            then such type objects can be updated externally at any time.
+
+        ignore_dFdv : bool
+            Whether to ignore the partial interaction of `vars` with the weak form.
+
+        Returns
+        -------
+        observe_DuDv() : function
+            Compute the displacement sensitivities with respect to variables
+            `vars` for a given time. If `dv`is specified, `observe_DuDv` will
+            compute the directional (Getaux) derivative in the `dv` direction.
+
+        '''
+
+        not_ignore_dFdv = not ignore_dFdv
+
+        vars = list_variables_from_iterable(vars, (Constant,Function))
+
+        if dv is None:
+            DuDv = tuple(Function(self._V) for _ in vars)
+        else:
+            DuDv = (Function(self._V),)
+
+        if not isinstance(DmDv, np.ndarray) \
+           or (DmDv.ndim == 1 and dv is None) \
+           or (DmDv.ndim == 2 and DmDv.shape[1] != len(vars)) \
+           or len(DmDv) != self._n:
+            raise TypeError('Expected `DmDv` to be a 2D `numpy.ndarray` whose '
+                            'size in the first dimension equals the number of '
+                            'model parameters ({self._n}) and whose size in the '
+                            'second dimension equals the number of derivatives '
+                            '({len(DuDv)}). Alternatively, `DmDv`, can be a 1D '
+                            '`numpy.ndarray`, but `dv` must be provided.')
+
+        if not_ignore_dFdv:
+
+            if all(isinstance(v_i, Constant) for v_i in vars):
+                dFdv = tuple(diff(self._F, v_i) for v_i in vars)
+
+                if dv is not None:
+
+                    if isinstance(dv, np.ndarray):
+                        dv = dv.tolist()
+
+                    dv = list_variables_from_iterable(dv, (float,int,Constant))
+
+                    if len(dv) != len(vars):
+                        raise TypeError('Expected parameter `dv` to contain {len(vars)} '
+                                        '`dolfin.Constant`(s) or `float`(s) but instead the '
+                                        'number of such types found in `dv` was {len(dv)}.')
+
+                    dFdv = (sum(dv_i * dFdv_i for dFdv_i, dv_i in zip(dFdv, dv)),)
+
+            elif all(isinstance(v_i, Function) for v_i in vars):
+
+                if dv is None:
+                    raise RuntimeError('Unable to compute the sensitivities with '
+                                       'respect to a `dolfin.Function`. Only the '
+                                       'directional sensitivity can be computed '
+                                       'by providing parameter `dv`.')
+
+                dv = list_variables_from_iterable(dv, Function)
+
+                if len(dv) != len(vars):
+                    raise TypeError('Expected parameter `dv` to contain {len(vars)} '
+                                    '`dolfin.Function`(s) but instead the number of '
+                                    'such type objects found in `dv` was {len(dv)}.')
+
+                dFdv = (derivative(self._F, v_i) for v_i in vars)
+
+                dFdv_dv = self._sum_actions(dFdv, dv)
+                if dFdv_dv != 0: dFdv = (dFdv_dv,)
+                else: not_ignore_dFdv = False
+
+            else:
+                raise TypeError('Parameter `vars` must exclusively contain either '
+                                '`dolfin.Constant`(s) or `dolfin.Function`(s).')
+
+            if not_ignore_dFdv: # could have become `False`
+                dudv = tuple(Function(self._V) for _ in dFdv)
+                def compute_dudv(): self._compute_dudv(dFdv, dudv)
+
+        def observe_DuDv(t=None, copy=True):
+            '''Compute the displacement sensitivities with respect to variables
+            at observation time.'''
+
+            if t is None:
+                if self._t is None:
+                    raise RuntimeError('Can not specify time parameter '
+                                       '`t = None`. Require at least once '
+                                       'to solve for an explicit time `t`.')
+                t = self._t
+
+            if not self._is_converged:
+                logger.warning('Inverse solver is not converged.')
+
+            if t != self._t:
+                self.solve_nonlinear_problem(t)
+
+            if self._is_missing_dudm:
+                self._compute_dudm()
+
+            if DmDv.ndim == 1: # and dv is not None
+                dudm_DmDv = (sum(dudm_j * DmDv_ij for dudm_j, DmDv_ij
+                    in zip(self._dudm, DmDv)),)
+            elif dv is None: # and DmDv.ndim == 2
+                dudm_DmDv = (sum(dudm_j * DmDv_ij for dudm_j, DmDv_ij
+                    in zip(self._dudm, DmDv_i)) for DmDv_i in DmDv.T)
+            else: # dv is not None and DmDv.ndim == 2
+                dudm_DmDv = (sum(dudm_j * DmDv_ij for dudm_j, DmDv_ij
+                    in zip(self._dudm, DmDv.dot(dv))),)
+
+            if not_ignore_dFdv:
+                compute_dudv()
+                for DuDv_i, dudm_DmDv_i, dudv_i in zip(DuDv, dudm_DmDv, dudv):
+                    DuDv_i.assign(dudm_DmDv_i + dudv_i)
+            else:
+                for DuDv_i, dudm_DmDv_i in zip(DuDv, dudm_DmDv):
+                    DuDv_i.assign(dudm_DmDv_i)
+
+            if copy:
+                if dv is None:
+                    return [DuDv_i.copy(True) for DuDv_i in DuDv]
+                else:
+                    return DuDv[0].copy(True)
+            else:
+                if dv is None:
+                    return DuDv
+                else:
+                    return DuDv[0]
+
+        return observe_DuDv
+
+
+    def factory_observe_DfDv(self, forms, vars, DmDv, dv=None, ignore_dFdv=False):
+        '''Factory for computing the total derivative of a form with respect to
+        variables taking into account the stationarity of the model cost.
+
+        Note, `DmDv` are the cumulative sensitivities that are obtained by
+        summing the local sensitivities over all observation times.
+
+        Parameters
+        ----------
+        vars : sequence of dolfin.Constant('s) or `dolfin.Function(`s)
+            Obtain displacement sensitivities with respect to each of the
+            variables in `vars`.
+
+        DmDv : numpy.ndarray (1D or 2D) of float's
+            The cumulative sensitivities of the model parameters with respect to
+            variables. The length of `DmDv` in the first dimension must always
+            equal the number of model parameters. The length of `DmDv` in its
+            second dimension must equal the length of `vars` if `dv` is `None`;
+            otherwise, if `dv` is not `None`, then either the length of `DmDv`
+            in its second dimension must be `1` or `DmDv` must be a 1D array.
+
+        dv : sequence of float's, int's, dolfin.Constant's, or dolfin.Function's
+            Compute the directional (Getaux) sensitivity in the direction of `dv`.
+
+            Note, in case `vars` are functions only the directional sensitivity
+            can be computed. The one exception when non-directional sensitvities
+            can be computed is when `vars` consists of a single function and the
+            parameter `ignore_dFdv` can be assumed to be `True`.
+
+        ignore_dFdv : bool
+            Whether to ignore the partial interaction of `vars` with the weak form.
+
+        Returns
+        -------
+        observe_DfDv() : function
+            Compute the sensitivities of forms with respect to variables `vars`
+            for at a given time. If `dv` is specified, `observe_DfDv` will
+            compute the directional (Getaux) derivative in the `dv` direction.
+
+        '''
+
+        if isinstance(forms, (list,tuple)):
+            flag_return_iterable_DfDv = True
+            forms_count = len(forms)
+        else:
+            flag_return_iterable_DfDv = False
+            forms = (forms,)
+            forms_count = 1
+
+        vars = list_variables_from_iterable(vars, (Constant,Function))
+
+        if not all(isinstance(f_i, ufl.Form) for f_i in forms):
+            raise TypeError('Parameter `forms` must be either a `dolfin.Form` '
+                            'or a `list` or `tuple` of `dolfin.Form`s.')
+
+        dfdu = [derivative(f_i, self._u) for f_i in forms]
+        dfdm = [tuple(diff(f_i, m_j) for m_j in self._m) for f_i in forms]
+
+        if all(isinstance(v_i, Constant) for v_i in vars):
+            dfdv = [tuple(diff(f_i, v_j) for v_j in vars) for f_i in forms]
+
+            if dv is not None:
+
+                if isinstance(dv, np.ndarray):
+                    dv = dv.tolist()
+
+                dv = list_variables_from_iterable(dv, (float,int,Constant))
+
+                if len(dv) != len(vars):
+                    raise TypeError('Expected parameter `dv` to contain {len(vars)} '
+                                    '`dolfin.Constant`(s) or `float`(s) but instead the '
+                                    'number of such types found in `dv` was {len(dv)}.')
+
+                for k in range(forms_count):
+                    dfdv[k] = (sum(dv_i*dfdv_ki for dfdv_ki, dv_i in zip(dfdv[k], dv)),)
+
+        elif all(isinstance(v_i, Function) for v_i in vars):
+            dfdv = [tuple(derivative(f_i, v_j) for v_j in vars) for f_i in forms]
+
+            if dv is not None:
+
+                dv = list_variables_from_iterable(dv, Function)
+
+                if len(dv) != len(vars):
+                    raise TypeError('Expected parameter `dv` to contain {len(vars)} '
+                                    '`dolfin.Function`(s) but instead the number of '
+                                    'such type objects found in `dv` was {len(dv)}.')
+
+                for k in range(forms_count):
+                    dfdv[k] = (self._sum_actions(dfdv[k], dv),)
+
+        else:
+            raise TypeError('Parameter `vars` must exclusively contain '
+                'either `dolfin.Constant`(s) or `dolfin.Function`(s).')
+
+        deriv_count = len(vars) if dv is None else 1
+
+        observe_DuDv = self.factory_observe_DuDv(
+            vars, DmDv, dv, ignore_dFdv)
+
+        assert isinstance(DmDv, np.ndarray)
+        assert (DmDv.ndim == 1 and dv is not None) or \
+               (DmDv.ndim == 2 and DmDv.shape[1] == len(vars))
+        assert len(DmDv) == self._n
+
+        def observe_DfDv(t=None):
+            '''Compute the sensitivities of an integral expression with respect
+            to variables at a given observation time.
+
+            Returns
+            -------
+            dfdv : tuple of tuples of float's
+                The items are index as dfdv[i_f][j_v].
+
+            '''
+
+            if t is None:
+                if self._t is None:
+                    raise RuntimeError('Can not specify time parameter '
+                                       '`t = None`. Require at least once '
+                                       'to solve for an explicit time `t`.')
+                t = self._t
+
+            DuDv = observe_DuDv(t, copy=False)
+            assert t == self._t # solved for `t`
+
+            if isinstance(DuDv, (list,tuple)):
+                assert deriv_count == len(DuDv)
+                dfdu_DuDv = tuple(tuple(action(dfdu_i, DuDv_j)
+                    for DuDv_j in DuDv) for dfdu_i in dfdu)
+            else: # isinstance(DuDv, Function)
+                assert deriv_count == 1
+                dfdu_DuDv = tuple((action(dfdu_i, DuDv),) for dfdu_i in dfdu)
+
+            if DmDv.ndim == 1: # and dv is not None
+                dfdm_DmDv = tuple((sum(DmDv[k] * dfdm_i[k]
+                    for k in range(self._n)),) for dfdm_i in dfdm)
+            elif dv is None: # and DmDv.ndim == 2
+                dfdm_DmDv = tuple(tuple(
+                    sum(DmDv_j[k] * dfdm_i[k] for k in range(self._n))
+                    for DmDv_j in DmDv.T) for dfdm_i in dfdm)
+            else: # dv is not None and DmDv.ndim == 2
+                dfdm_DmDv = tuple((sum(DmDv[k].dot(dv) * dfdm_i[k]
+                    for k in range(self._n)),) for dfdm_i in dfdm)
+
+            DfDv = [tuple(
+                assemble(dfdu_DuDv[i][j] + dfdm_DmDv[i][j] + dfdv[i][j])
+                for j in range(deriv_count)) for i in range(forms_count)]
+
+            if flag_return_iterable_DfDv:
+                return DfDv
+            else:
+                return DfDv[0]
+
+        return observe_DfDv
 
 
     def observe_dudm(self, t=None, copy=True):
-        '''Partial derivatives of the primary field at time `t`.'''
+        '''Compute displacement derivative with respect to model parameters
+        at observation time. Note, this is a partial derivative.
 
-        if self.require_nonlinear_solution(t):
+        Note
+        ----
+        The derivative is defined as: du/dm_i := inv(dF/du)*(-dF/dm_i)
+
+        Returns
+        -------
+        dudm : numpy.ndarray (2D) of float's
+            Displacement sensitivities with respect to model parameters at
+            observation time `t`.
+
+        '''
+
+        if t is None:
+            if self._t is None:
+                raise RuntimeError('Can not specify time parameter `t = None`. '
+                    'Require at least once to solve for an explicit time `t`.')
+            t = self._t
+
+        if t != self._t:
             self.solve_nonlinear_problem(t)
 
-        if self._property['is_expired_dudm']:
+
+        if self._is_missing_dudm:
             self._compute_dudm()
 
-        return [dudm_i.copy(True) for dudm_i in self._dudm] \
-               if copy else self._dudm
-
-
-    def observe_d2udm2(self, t=None, copy=True):
-        '''Compute partial derivatives of the primary field with respect to
-        the model parameters at observation time `t`. Note, since the matrix
-        d2u/dm2 is symmetric, only the upper triangular part is returned.'''
-
-        if self.require_nonlinear_solution(t):
-            self.solve_nonlinear_problem(t)
-
-        if self._property['is_expired_d2udm2']:
-            self._compute_d2udm2()
-
         if copy:
-            return [[dudm_ij.copy(True)
-                    for dudm_ij in dudm_i]
-                    for dudm_i in self._d2udm2]
+            return [dudm_i.copy(True) for dudm_i in self._dudm]
         else:
-            return self._d2udm2
+            return self._dudm
 
 
-    def set_parameters_inverse_solver(self, rhs):
-        '''Update parameter values with those of a nested dict-like `rhs`.'''
-        utility.update_existing_keyvalues(self.parameters_inverse_solver, rhs)
+    def observe_dudm_eig(self, t=None):
+        '''Compute displacement sensitivities with respect to the principal
+        directions of the model parameter sensitivities.
 
-    def set_parameters_nonlinear_solver(self, rhs):
-        '''Update parameter values with those of a nested dict-like `rhs`.'''
-        utility.update_existing_keyvalues(self.parameters_nonlinear_solver, rhs)
+        Returns
+        -------
+        dudm_eig : list of dolfin.Function's
+            Displacement sensitivities with respect to model parameters at
+            observation time `t` in the direction of eigenvalues of D2J/Dm2.
 
-    def set_parameters_linear_solver(self, rhs):
-        '''Update parameter values with those of a nested dict-like `rhs`.'''
-        utility.update_existing_keyvalues(self.parameters_linear_solver, rhs)
+        dm_eigval : numpy.ndarray (1D)
+            Array of eigenvalues of the Heassian of the model cost, D2J/Dm2
+
+        dm_eigvec : numpy.ndarray (2D)
+            Array of eigenvalues of the Heassian of the model cost, D2J/Dm2
+
+        '''
+
+        if t is None:
+            if self._t is None:
+                raise RuntimeError('Can not specify time parameter `t = None`. '
+                    'Require at least once to solve for an explicit time `t`.')
+            t = self._t
+
+        if self._cumsum_D2JDm2 is None:
+            self.solve_forward_problem()
+
+        D2JDm2 = self._cumsum_D2JDm2.copy()
+
+        dm_eigval, dm_eigvec = linalg.eigh(D2JDm2)
+        dudm_eig = self.observe_dudm(t, copy=True)
+
+        for i, dm in enumerate(dm_eigvec.T):
+            tmp = sum(dudm_i * dm_i for dudm_i, dm_i in zip(self._dudm, dm))
+            dudm_eig[i].assign(tmp)
+
+        return dudm_eig, dm_eigval, dm_eigvec
 
 
-    def view_cumsum_DJDm(self):
-        if self._property['cumsum_DJDm'] is not None:
-            return self._property['cumsum_DJDm'].copy()
-        else:
-            logger.info('Solving forward problem')
-            return self.solve_forward_problem()[0]
+    def observe_model_cost(self, observation_times=None,
+        compute_gradient=False, sensitivity_method='default'):
+        '''Compute the model cost `J` and the model cost gradient `DJDm`
+        at each of the observation times for the current model parameters.
 
+        Returns
+        -------
+        J_obs : list of float's
+            Values of model costs for the observation times.
+        DJDm_obs : list of numpy.ndarray's (2D) of float's
+            Values of the model cost gradient for the observation times.
 
-    def view_cumsum_D2JDm2(self):
-        if self._property['cumsum_D2JDm2'] is not None:
-            return self._property['cumsum_D2JDm2'].copy()
-        else:
-            logger.info('Solving forward problem')
-            return self.solve_forward_problem()[1]
+        '''
+
+        J_obs = []
+        DJDm_obs = []
+
+        observation_times = \
+            self._observation_times_getdefault(observation_times)
+
+        if compute_gradient:
+            compute_DJDm = self.factory_compute_DJDm(sensitivity_method)
+
+        for t in observation_times:
+
+            self.solve_nonlinear_problem(t)
+            J_obs.append(assemble(self._J))
+            print('cost of t=', t, 'is:', J_obs[-1])
+
+            if compute_gradient:
+                DJDm_obs.append(compute_DJDm())
+
+        if compute_gradient:
+            DJDm_obs = [np.ascontiguousarray(DJDm_i)
+                for DJDm_i in np.stack(DJDm_obs, 1)]
+
+        return J_obs, DJDm_obs
+
+    def observe_model_cost_seperate(self, observation_times=None,
+        compute_gradient=False, sensitivity_method='default'):
+        '''Compute the model cost `J` and the model cost gradient `DJDm`
+        at each of the observation times for the current model parameters.
+
+        Returns
+        -------
+        J_obs : list of float's
+            Values of model costs for the observation times.
+        DJDm_obs : list of numpy.ndarray's (2D) of float's
+            Values of the model cost gradient for the observation times.
+
+        '''
+
+        Ju_obs = []
+        Jf_obs = []
+        J_obs = []
+
+        observation_times = \
+            self._observation_times_getdefault(observation_times)
+
+        for t in observation_times:
+
+            self.solve_nonlinear_problem(t)
+            J_obs.append(assemble(self._J))
+            Ju_obs.append(assemble(self._Ju))
+            Jf_obs.append(assemble(self._Jf))
+            print('global cost of t=', t, 'is:', J_obs[-1])
+            print('displacemnt cost of t=', t, 'is:', Ju_obs[-1])
+            print('force cost of t=', t, 'is:', Jf_obs[-1])
+
+        return J_obs, Ju_obs, Jf_obs
 
 
     def view_model_parameters(self):
@@ -1269,24 +1728,47 @@ class InverseSolverBasic:
                 return {k : extract(model_parameters[k])
                     for k in model_parameters.keys()}
 
-            elif isinstance(model_parameters, SEQUENCE_TYPES):
-                return [extract(m) for m in model_parameters]
+            elif isinstance(model_parameters, (list,tuple)):
+                return [extract(v) for v in model_parameters]
+
+            elif isinstance(model_parameters, Constant):
+                return float(model_parameters.values())
 
             else:
-                if isinstance(model_parameters, Constant):
-                    return float(model_parameters.values())
-                else:
-                    return model_parameters
+                raise TypeError('Expected a `dolfin.Constant` type inside '
+                    '`model_parameters` but instead got {model_parameters}.')
 
-        return extract(self._model_parameters)
+        return extract(self.model_parameters)
 
 
-    def view_model_parameter_values(self):
-        return tuple(float(m_i) for m_i in self._m)
+    def view_model_parameters_as_list(self):
+        return [float(m_i.values()) for m_i in self._m]
+
+    def view_model_parameters_as_array(self):
+        return np.array(self.view_model_parameters_as_list())
+
+
+    def view_cumsum_DJDm(self):
+        if self._cumsum_DJDm is not None:
+            return self._cumsum_DJDm.copy()
+        else:
+            logger.info('Solving forward problem for `DJDm`.')
+            return self.solve_forward_problem()[0]
+
+    def view_cumsum_D2JDm2(self):
+        if self._cumsum_D2JDm2 is not None:
+            return self._cumsum_D2JDm2.copy()
+        else:
+            logger.info('Solving forward problem for `D2JDm2`.')
+            return self.solve_forward_problem()[1]
+
+    def compute_condition_number(self):
+        '''Condition number of `D2JDm2`.'''
+        return np.linalg.cond(self.view_cumsum_D2JDm2())
 
     @property
     def m(self):
-        '''Tuple of model parameters.'''
+        '''Model parameters.'''
         return self._m
 
     @property
@@ -1295,9 +1777,20 @@ class InverseSolverBasic:
         return self._n
 
     @property
-    def model_parameters(self):
-        return utility.replicate_tree_structure(
-            self._model_parameters, Constant)
+    def t(self):
+        '''Current observation time.'''
+        return self._t
+
+    @property
+    def t_obs(self):
+        '''All observation times.'''
+        return self._observation_times
+
+    @property
+    def n_obs(self):
+        '''All observation times.'''
+        return len(self._observation_times)
+
 
     @property
     def model_parameters_listed(self):
@@ -1305,1714 +1798,50 @@ class InverseSolverBasic:
 
     @property
     def num_model_parameters(self):
-        return self._n
+        a = self._n
+        return a
 
     @property
     def observation_time(self):
-        return self._property['observation_time']
+        return self._t
 
     @property
     def observation_times(self):
-        return self._property['observation_times']
+        return list(self._observation_times)
 
     @property
     def num_observation_times(self):
-        return len(self._property['observation_times'])
+        return len(self._observation_times)
 
-    @property
-    def measurement_setter(self):
-        return self._property['measurement_setter']
 
-    @property
-    def is_converged(self):
-        return self._property['is_converged']
+    def dir(self, attributes='public'):
+        attributes = str(attributes)
 
+        if attributes == 'public':
+            return [a for a in dir(self) if not a.startswith('_')]
 
-    @staticmethod
-    def _compute_dm_method_gradient(DJDm, D2JDm2):
-        '''Compute model parameter change using gradient-descent with line-search.'''
-        dm = -DJDm
-        d2J = D2JDm2.dot(dm).dot(dm)
-        if d2J > 0:
-            dm *= (dm.dot(dm)/d2J)
-        return dm
+        elif attributes == 'private':
+            return [a for a in dir(self) if a.startswith('_')]
 
-    @staticmethod
-    def _compute_dm_method_newton(DJDm, D2JDm2):
-        '''Compute model parameter change using the Newton method.'''
-        return linalg.solve(D2JDm2, -DJDm, assume_a='sym')
+        elif attributes == 'all':
+            return dir(self)
 
 
-class InverseSolver(InverseSolverBasic):
+def list_variables_from_iterable(iterable, valid_types, vars_list=None):
+    '''Extract variables of needed type(s) from (a nested) iterable to a list.'''
 
-    def __new__(cls, inverse_solver_basic, *args):
+    if vars_list is None:
+        vars_list = []
 
-        if not isinstance(inverse_solver_basic, InverseSolverBasic):
-            raise TypeError('Parameter `inverse_solver_basic` must '
-                            'be an instance of `InverseSolverBasic`.')
+    if isinstance(iterable, valid_types):
+        vars_list.append(iterable)
 
-        # Create an empty instance
-        self = object.__new__(cls)
+    elif hasattr(iterable, 'keys'):
+        for k in iterable.keys():
+            list_variables_from_iterable(iterable[k], valid_types, vars_list)
 
-        # Reference the fields from `inverse_solver_basic`
-        self.__dict__.update(inverse_solver_basic.__dict__)
+    elif hasattr(iterable, 'index'):
+        for iterable_i in iterable:
+            list_variables_from_iterable(iterable_i, valid_types, vars_list)
 
-        return self
-
-
-    def __init__(self, inverse_solver_basic, u_obs, u_msr, dx_msr, T_obs, T_msr, ds_msr):
-        '''Initialize inverse solver.
-
-        Parameters
-        ----------
-        inverse_solver_basic : InverseSolverBasic
-            Basic inverse solver.
-
-        u_obs : dolfin.Function
-            The displacement field function. Note, in case the primary field
-            `u` is mixed, `u_obs` can be extracted by the splitting method;
-            specifically, `u_obs, *_ = u.split(deepcopy=False)`. By ensuring
-            that `deepcopy==False`, the degrees of freedom will be shared.
-
-        u_msr : dolfin expression-like object
-            An expression of the displacement field measurements.
-
-        dx_msr : dolfin.Measure
-            Integration domain measure for the measured displacement field.
-
-        T_obs : a single or a sequence of dolfin expression-like objects
-            An expression of the tractions observed on the measurement boundary.
-
-        T_msr : a single or a sequence of dolfin expression-like objects
-            An expression of the tractions measured on the measurement boundary.
-
-        ds_msr : dolfin.Measure
-            Integration boundary measure for the measured/observed tractions.
-
-        '''
-
-        self._u_obs, self._u_msr, self._dx_msr = \
-            self._std_init_args_u_obs_u_msr_dx_msr(u_obs, u_msr, dx_msr)
-
-        self._T_obs, self._T_msr, self._ds_msr = \
-            self._std_init_args_T_obs_T_msr_ds_msr(T_obs, T_msr, ds_msr)
-
-        self._int_dx_msr = tuple(assemble(1*dx_i) for dx_i in self._dx_msr)
-        self._int_ds_msr = tuple(assemble(1*sum(ds_i[1:], ds_i[0]))
-                                 for ds_i in self._ds_msr)
-
-        self._f_obs = tuple(tuple(sum(T[j_dim]*ds
-            for T, ds in zip(T_obs_i, ds_msr_i))
-            for j_dim in range(len(T_obs_i[0])))
-            for T_obs_i, ds_msr_i in zip(self._T_obs, self._ds_msr))
-
-        self._f_msr = tuple(tuple(sum(T[j_dim]*ds
-            for T, ds in zip(T_msr_i, ds_msr_i))
-            for j_dim in range(len(T_msr_i[0])))
-            for T_msr_i, ds_msr_i in zip(self._T_msr, self._ds_msr))
-
-        assert all(len(f_obs_i) == len(f_msr_i)
-            for f_obs_i, f_msr_i in zip(self._f_obs, self._f_msr))
-
-        self._dfdm = tuple(tuple(
-            tuple(diff(fj_obs_i, m_k) for m_k in self._m)
-            for fj_obs_i in f_obs_i) for f_obs_i in self._f_obs)
-
-        self._dfdu = tuple(tuple(derivative(fj_obs_i, self._u)
-            for fj_obs_i in f_obs_i) for f_obs_i in self._f_obs)
-
-        # Model parameter sensitivities wrt themselves
-        self.observe_dmdm = self.apply_observation_caching(self.factory_observe_dmdm())
-
-        # self.observe_dmdm = lambda args, **kwargs: -np.identity(self._n)
-
-        def raise_method_undefined_error(*args, **kwargs):
-            raise RuntimeError('Method `observe_dmdu_msr` has not been defined; '
-                               'define it by calling `init_observe_dmdu_msr`.')
-
-        # Sensitivities wrt displacement field measurements
-        self.observe_dmdu_msr = raise_method_undefined_error
-
-        def raise_method_undefined_error(*args, **kwargs):
-            raise RuntimeError('Method `observe_dmdT_msr` has not been defined; '
-                               'define it by calling `init_observe_dmdT_msr`.')
-
-        # Sensitivities wrt reaction (traction) measurements
-        self.observe_dmdT_msr = raise_method_undefined_error
-
-        self._du_msr_dummy = ()
-        self._dT_msr_dummy = ()
-
-        self._cached_u_dofs = {} # Cached displacements
-        self._cached_u_auth = () # Cache authentication
-
-        # self._is_sequence_u_msr = True if \
-        #     isinstance(dx_msr, SEQUENCE_TYPES) else False
-
-        # self._is_sequence_f_msr = True if \
-        #     isinstance(ds_msr, SEQUENCE_TYPES) else False
-
-
-    def assign_measurement_setter(self, measurement_setter):
-        '''Assign measurement setter and reset inverse solution.'''
-
-        super().assign_measurement_setter(measurement_setter)
-        self._cached_u_dofs.clear(); self._cached_u_auth = ()
-
-
-    def fit_model_forall_times(self, observation_times=None):
-        '''Minimize model cost for all observation times.'''
-
-        logger.info('Begin model fitting for all observation times')
-
-        if observation_times is not None and \
-           observation_times is not self.observation_times:
-            self.assign_observation_times(observation_times)
-
-        num_iterations, is_converged = self.solve_inverse_problem()
-        model_parameters = self.view_model_parameter_values()
-
-        if not is_converged and \
-           self.parameters_inverse_solver['error_on_nonconvergence']:
-            raise RuntimeError('Inverse solver did not converge')
-
-        return model_parameters, num_iterations, is_converged
-
-
-    def fit_model_foreach_time(self, observation_times=None):
-        '''Minimize model cost for each observation time.'''
-
-        logger.info('Begin model fitting for each observation time')
-
-        if observation_times is None: observation_times = self.observation_times
-        else: observation_times = self._std_observation_times(observation_times)
-
-        is_converged = []
-        num_iterations = []
-        model_parameters = []
-
-        try:
-            for t in observation_times:
-
-                self.assign_observation_times((t,))
-                n, b = self.solve_inverse_problem()
-                m = self.view_model_parameter_values()
-
-                is_converged.append(b)
-                num_iterations.append(n)
-                model_parameters.append(m)
-
-                if not b:
-                    logger.error('Inverse solver did not converge '
-                                 f'for observation time {t}')
-
-                    if self.parameters_inverse_solver['error_on_nonconvergence']:
-                        raise RuntimeError('Inverse solver did not converge')
-
-        finally:
-            self.assign_observation_times(observation_times)
-
-        return model_parameters, num_iterations, is_converged
-
-
-    def update_nonlinear_solution(self, t=None):
-        '''Update the nonlinear solution for the current time. If the solution
-        is not already in cache, solve the nonlinear problem and cache the
-        solution for the current time and model parameter values.
-
-        Returns
-        -------
-        n : int
-            Number of iterations.
-        b : bool
-            Convergence status.
-
-        '''
-
-        if t is None:
-            t = self.observation_time
-
-            if t is None:
-                return self.solve_nonlinear_problem(t)
-
-        auth = self.view_model_parameter_values()
-
-        if self._cached_u_auth != auth:
-            self._cached_u_auth = auth
-            self._cached_u_dofs.clear()
-
-        u_dofs = self._cached_u_dofs.get(t)
-
-        if u_dofs:
-
-            self._reset_nonlinear_solution()
-            self._set_nonlinear_solution_time(t)
-            self._u.vector()[:] = u_dofs
-            n, b = 0, True
-
-        else:
-
-            n, b = self.solve_nonlinear_problem(t)
-            self._cached_u_dofs[t] = self._u.vector().copy()
-
-        return n, b
-
-
-    def assess_model_cost(self, observation_times=None, compute_gradients=True):
-        '''Compute the model cost `J` and the model cost derivatives `DJDm`.
-
-        Returns
-        -------
-        cost_values : list of float's
-            Values of the model cost at observation times.
-        cost_gradients : list of numpy.ndarray's (1D)
-            Gradients of the model cost at observation times.
-
-        '''
-
-        if observation_times is None: observation_times = self.observation_times
-        else: observation_times = self._std_observation_times(observation_times)
-
-        cost_values = []
-        cost_gradients = []
-
-        if compute_gradients:
-            compute_DJDm = self._factory_compute_DJDm(
-                self.parameters_inverse_solver['sensitivity_method'])
-
-        for t in observation_times:
-
-            self.update_nonlinear_solution(t)
-            cost_values.append(self._assemble_J())
-
-            if compute_gradients:
-                cost_gradients.append(compute_DJDm())
-
-        return cost_values, cost_gradients
-
-
-    def assess_cost_sensitivity(self, constraint_vectors=None):
-        '''Compute the principal (eigenvalue-like) model cost sensitivities
-        with respect to the model parameters taking into account any constraint
-        vectors for the model parameter change direction.
-
-        Notes
-        -----
-        The constraint vectors will typically be for the reaction forces. For
-        example, suppose you wish to compute the sensitivities of the cost
-        subject to the constness of an observed reaction force on a measurement
-        boundary. The reaction force variation (i.e. a constraint vector) can
-        be obtained useing `observe_dfdm(t)[i_msr][i_dim]` where `i_msr` denotes
-        a particular measurement and `i_dim` -- the observed force component.
-
-        Important
-        ---------
-        The number of constraint vectors must be fewer than the number of
-        model parameters with respect to which the cost sensitivity will be
-        computed.
-
-        Returns
-        -------
-        d2J_eig : list of float's
-            Model cost sensitivities with respect to the principal model
-            parameter change directions `dm_eig`.
-        dm_eig : list of numpy.ndarray's (1D)
-            Principal model parameter change directions that are conjugate
-            with respect to `D2JD2m` and orthogonal to any constraint vectors.
-            Note that `dm_eig` are generally not mutually orthogonal.
-
-        '''
-
-        EPS = 1e-12
-
-        D2JDm2 = self.view_cumsum_D2JDm2()
-
-        if (hasattr(constraint_vectors, '__len__') \
-            and len(constraint_vectors) != 0):
-            C = constraint_vectors
-        else:
-            C = None
-
-        if C is not None:
-
-            C = self._std_model_parameter_constraints(C)
-            R = self._compute_orthogonalizing_operator(C)
-
-            # Principal directions of curvature of `D2JDm2`
-            _, eigvec = linalg.eigh(R.T.dot(D2JDm2.dot(R)))
-            dm_eig = eigvec.T.dot(R) # (as row vectors)
-
-            # NOTE: `dm_eig` are conjugate wrt `D2JDm2`, but
-            #       generally not orthogonal wrt each other.
-
-            dm_eig = [v_i / (sqrt(v_i.dot(v_i)) + EPS) for v_i in dm_eig]
-            d2J_eig = [D2JDm2.dot(v_i).dot(v_i) for v_i in dm_eig]
-
-        else:
-
-            d2J_eig, eigvec = linalg.eigh(D2JDm2)
-            dm_eig = eigvec.T # (as row vectors)
-
-        ind = np.argsort(np.abs(d2J_eig))[::-1]
-        d2J_eig = [d2J_eig[i] for i in ind]
-        dm_eig = [dm_eig[i] for i in ind]
-
-        return d2J_eig, dm_eig
-
-
-    def assess_misfit_displacements(self, observation_times=None, subdims=None):
-        '''Compute the relative misfit in the displacements.
-
-        Notes
-        -----
-        The measure of misfit is the L2-norm:
-            $\sqrt{(u_{obs} - u_{msr})**2 dx_{msr} / u_{msr}**2 dx_{msr}}$
-
-        Parameters
-        ----------
-        observation_times : (sequence of) real(s) (optional)
-            Observation times at which to compute the displacement errors. If
-            `None`, the errors are computed for the current observation times.
-        subdims : (sequence of (sequences of)) int(s) (optional)
-            The subdimension indices into the displacement field measurements.
-            If `None`, the error is computed considering all subdimension.
-
-        Returns
-        -------
-        errors : list of list's of 1D numpy.ndarray's
-            The relative misfit between the observed and measured displacements.
-            Value at `errors[I][J]` refers to `I`th measurement at `J`th time.
-
-        '''
-
-        EPS = 1e-12
-        EPSEPS = EPS*EPS
-
-        if observation_times is None: observation_times = self.observation_times
-        else: observation_times = self._std_observation_times(observation_times)
-
-        size_msr, dim_max = len(self._u_msr), len(self._u_msr[0])
-        subdims = self._std_subdims_v_msr(subdims, size_msr, dim_max)
-
-        numers = [sum((self._u_obs[dim_j]-u_msr_i[dim_j])**2*dx_msr_i for dim_j in subdims_msr_i)
-                  for u_msr_i, dx_msr_i, subdims_msr_i in zip(self._u_msr, self._dx_msr, subdims)]
-
-        denoms = [sum(u_msr_i[dim_j]**2*dx_msr_i for dim_j in subdims_msr_i)
-                  for u_msr_i, dx_msr_i, subdims_msr_i in zip(self._u_msr, self._dx_msr, subdims)]
-
-        errors = []
-
-        def compute_error(numer_i, denom_i):
-            return sqrt(assemble(numer_i)/(assemble(denom_i) + EPSEPS))
-
-        for t in observation_times:
-            self.update_nonlinear_solution(t)
-            errors.append([compute_error(numer_i, denom_i)
-                for numer_i, denom_i in zip(numers, denoms)])
-
-        # Current indexing: observation time, measurement subdomain
-        # Reorder indexing: measurement subdomain, observation time
-
-        errors = [[error_t[i_msr] for error_t in errors]
-                  for i_msr in range(size_msr)]
-
-        return errors
-
-
-    def assess_misfit_reaction_forces(self, observation_times=None, subdims=None):
-        '''Compute the relative misfit in the reaction forces.
-
-        Notes
-        -----
-        The measure of misfit is the L2-norm:
-            $\sqrt{(f_{obs} - f_{msr})**2 / f_{msr}**2}$
-
-        Parameters
-        ----------
-        observation_times : (sequence of) real(s) (optional)
-            Observation times at which to compute the displacement errors. If
-            `None`, the errors are computed for the current observation times.
-        subdims : (sequence of (sequences of)) int(s) (optional)
-            The subdimension indices into the displacement field measurements.
-            If `None`, the error is computed considering all subdimension.
-
-        Returns
-        -------
-        errors : list of list's of 1D numpy.ndarray's
-            The relative misfit between the model and measured reaction forces.
-            The value at `errors[I][J][K]` refers to the `I`th measurement, the
-            `J`th time, and the `K`th reaction force component.
-
-        '''
-
-        EPS = 1e-12
-        EPSEPS = EPS*EPS
-
-        if observation_times is None: observation_times = self.observation_times
-        else: observation_times = self._std_observation_times(observation_times)
-
-        size_msr, dim_max = len(self._f_msr), len(self._f_msr[0])
-        subdims = self._std_subdims_v_msr(subdims, size_msr, dim_max)
-
-        f_obs = [[f_obs_i[j] for j in subdims_i]
-            for f_obs_i, subdims_i in zip(self._f_obs, subdims)]
-
-        f_msr = [[f_msr_i[j] for j in subdims_i]
-            for f_msr_i, subdims_i in zip(self._f_msr, subdims)]
-
-        errors = []
-
-        def compute_error(f_obs_i, f_msr_i):
-
-            f_obs_i = [assemble(fj) for fj in f_obs_i]
-            f_msr_i = [assemble(fj) for fj in f_msr_i]
-
-            denom_i = sum(fj**2 for fj in f_msr_i) + EPSEPS
-            numer_i = sum((fj_obs_i - fj_msr_i)**2
-                for fj_obs_i, fj_msr_i in zip(f_obs_i, f_msr_i))
-
-            return sqrt(numer_i/denom_i)
-
-        for t in observation_times:
-            self.update_nonlinear_solution(t)
-            errors.append([compute_error(f_obs_i, f_msr_i)
-                for f_obs_i, f_msr_i in zip(f_obs, f_msr)])
-
-        # Current indexing: time, measurement subdomain, force component
-        # Reorder indexing: measurement subdomain, time, force component
-
-        errors = [[error_t[i_msr] for error_t in errors]
-                  for i_msr in range(size_msr)]
-
-        return errors
-
-
-    def apply_observation_caching(self, function):
-        '''Observations produced by `function` will be cached.
-
-        Parameters
-        ----------
-        function : callable(t)
-            Function-like with a single argument for the observation time.
-
-        '''
-
-        cache = {}
-
-        cache_auth_1 = self.view_model_parameter_values()
-        cache_auth_2 = id(self.observation_times)
-        cache_auth_3 = id(self.measurement_setter)
-
-        def function_with_caching(t=None, copy=True):
-            # To replace `__doc__` with `function.__doc__`
-
-            nonlocal cache_auth_1
-            nonlocal cache_auth_2
-            nonlocal cache_auth_3
-
-            if t is None:
-                t = self.observation_time
-
-                if t is None:
-                    return function(t)
-
-            auth_1 = self.view_model_parameter_values()
-            auth_2 = id(self.observation_times)
-            auth_3 = id(self.measurement_setter)
-
-            if cache_auth_1 != auth_1 or \
-               cache_auth_2 != auth_2 or \
-               cache_auth_3 != auth_3:
-                cache_auth_1 = auth_1
-                cache_auth_2 = auth_2
-                cache_auth_3 = auth_3
-                cache.clear()
-
-            value = cache.get(t)
-
-            if value is None:
-
-                if t != self.observation_time:
-                    self.update_nonlinear_solution(t)
-
-                value = function(t)
-                cache[t] = value
-
-            return deepcopy(value) if copy else value
-
-        function_with_caching.__doc__ = function.__doc__
-        function_with_caching.cache = cache
-
-        return function_with_caching
-
-
-    def init_observe_dmdu_msr(self, v, ignore_dFdv, ignore_dJdv=False):
-        '''Define the method for computing the model parameter sensitivities
-        with respect to the displacement field measurement perturbations.
-
-        Parameters
-        ----------
-        v : (sequence of) dolfin.Function('s) or dolfin.Constant('s)
-            Dummy arguments with respect to which to compute the sensitivities.
-
-        '''
-
-        if not isinstance(v, SEQUENCE_TYPES): v = (v,)
-
-        if len(v) != len(self._u_msr):
-            raise TypeError('Expected parameter `v` to contain '
-                            f'{len(self._u_msr)} coefficient(s)')
-
-        v = utility.list_values_from_iterable(v, (Function, Constant))
-
-        self.observe_dmdu_msr = self.apply_observation_caching(
-            self.factory_observe_dmdv(v, ignore_dFdv, ignore_dJdv))
-
-        self._du_msr_dummy = tuple(v)
-
-        return self.observe_dmdu_msr
-
-
-    def init_observe_dmdT_msr(self, v, ignore_dFdv, ignore_dJdv=False):
-        '''Define the method for computing the model parameter sensitivities
-        with respect to the reaction (traction) measurement perturbations.
-
-        Parameters
-        ----------
-        v : (sequence of) dolfin.Function('s) or dolfin.Constant('s)
-            Dummy arguments with respect to which to compute the sensitivities.
-
-        '''
-
-        if not isinstance(v, SEQUENCE_TYPES): v = (v,)
-
-        if len(v) != len(self._T_msr):
-            raise TypeError('Expected parameter `v` to contain '
-                            f'{len(self._T_msr)} coefficient(s).')
-
-        v = utility.list_values_from_iterable(v, (Function, Constant))
-
-        self.observe_dmdT_msr = self.apply_observation_caching(
-            self.factory_observe_dmdv(v, ignore_dFdv, ignore_dJdv))
-
-        self._dT_msr_dummy = tuple(v)
-
-        return self.observe_dmdT_msr
-
-
-    def observe_dmdf_msr(self, t=None):
-        '''Compute model parameter sensitivities with respect to the reaction
-        force measurements at observation time `t`.
-
-        Returns
-        -------
-        dmdf_msr : list of numpy.ndarray's (2D)
-            Model parameter sensitivities with respect to the reaction force
-            measurements at observation time `t`. The value at `dmdf_msr[I][J,K]`
-            corresponds to the `I`th measurement, and the `J`th model parameter
-            sensitivity with respect to the `K`th measurement degree of freedom.
-
-        '''
-        return [dmdT_msr_i / ds_msr_i for dmdT_msr_i, ds_msr_i in \
-            zip(self.observe_dmdT_msr(t, copy=False), self._int_ds_msr)]
-
-
-    def factory_observe_dmdm(self):
-        '''Factory for computing model parameter self-sensitivities.
-
-        Notes
-        -----
-        This function is useful for testing the self-correction of the inverse
-        solver. In general, given a perturbation in the model parameters the
-        resultant cumulative model parameter sensitivities should exactly be in
-        the opposite direction of the perturbation. Specifically, the cumulative
-        sensitivities should be equal to the negative of the identity matrix.
-
-        Returns
-        -------
-        observe_dmdm : function(t=None)
-            The function that computes the model parameter self-sensitivities
-            for the observation time `t`. Note, if `t` is `None`, assume the
-            current solution time.
-
-        '''
-
-        _observe_dmdm = self.factory_observe_dmdv(
-            self._m, ignore_dFdv=False, ignore_dJdv=False)
-
-        # NOTE: The function `_observe_dmdm` returns a list of arrays.
-        #       As this is not convenient, `observe_dmdm` modifies the
-        #       function so that a square matrix is returned instead.
-
-        def observe_dmdm(t=None):
-            '''Compute model parameter self-sensitivities at time `t`.
-
-            Returns
-            -------
-            dmdm : numpy.ndarray (2D)
-                Model parameter self-sensitivities for time `t`.
-
-            '''
-            return np.concatenate(_observe_dmdm(t), 1)
-
-        return observe_dmdm
-
-
-    def factory_observe_dmdv(self, v, ignore_dFdv=False, ignore_dJdv=False):
-        '''Return a function that computes the model parameter sensitivities.
-
-        Parameters
-        ----------
-        v : (sequence of) either dolfin.Constant(s) or dolfin.Function(s)
-            The arguments with respect to wich to compute the sensitivities.
-
-        ignore_dFdv : bool
-            Whether the argumens `v` are not in the weak form.
-
-        ignore_dJdv : bool
-            Whether the arguments `v` are not in the model cost.
-
-        Returns
-        -------
-        observe_dmdv : function(t=None)
-            The function that computes the sensitivities.
-
-        Notes
-        -----
-        The sensitivities are local quantities. More precisely, they represent
-        the sensitivities due to local changes in the variables at a given time.
-        The total (or cumulative) sensitivities can be obtained by summing all
-        local sensitivities over the observation times.
-
-        '''
-
-        if ignore_dFdv and ignore_dJdv:
-            raise ValueError('Parameters `ignore_dFdv` and `ignore_dJdv` must '
-                             'not both be `True`; at least one must be `False`.')
-
-        not_ignore_dFdv = not ignore_dFdv; del ignore_dFdv
-        not_ignore_dJdv = not ignore_dJdv; del ignore_dJdv
-
-        if not isinstance(v, SEQUENCE_TYPES): v = (v,)
-
-        is_type_constant = all(isinstance(v_i, Constant) for v_i in v)
-        is_type_function = all(isinstance(v_i, Function) for v_i in v) \
-                           if not is_type_constant else False
-
-        if is_type_constant:
-
-            if not_ignore_dFdv:
-                dFdv = []
-
-            if not_ignore_dJdv:
-                if self._Q is not None:
-                    dQdv = []
-                if self._L is not None:
-                    dLdv = []
-
-            slices = []
-            posnxt = 0
-
-            for v_i in v:
-
-                shape = v_i.ufl_shape
-
-                if len(shape) > 1:
-                    raise TypeError('Parameter `v` can only contain `dolfin.Constant`s '
-                                    'that are either scalar-valued or vector-valued.')
-
-                dim = shape[0] if shape else 1
-                poscur, posnxt = posnxt, posnxt+dim
-                slices.append(slice(poscur, posnxt))
-
-                if dim > 1:
-                    for j in range(dim):
-
-                        vh_i = [0.0,]*dim
-                        vh_i[j] = 1.0
-                        vh_i = Constant(vh_i)
-
-                        if not_ignore_dFdv:
-                            dFdv.append(derivative(self._F, v_i, vh_i))
-                        if not_ignore_dJdv:
-                            if self._Q is not None:
-                                dQdv.append(derivative(self._Q, v_i, vh_i))
-                            if self._L is not None:
-                                dLdv.append(derivative(self._L, v_i, vh_i))
-
-                else:
-
-                    if not_ignore_dFdv:
-                        dFdv.append(diff(self._F, v_i))
-                    if not_ignore_dJdv:
-                        if self._Q is not None:
-                            dQdv.append(diff(self._Q, v_i))
-                        if self._L is not None:
-                            dLdv.append(diff(self._L, v_i))
-
-            if not_ignore_dFdv:
-
-                compute_dudv_d2udmdv, dudv, d2udmdv = \
-                    self._factory_compute_dudv_d2udmdv(dFdv)
-
-            if not_ignore_dJdv:
-
-                if self._Q is not None:
-                    d2Qdudv = [derivative(dQdv_k, self._u) for dQdv_k in dQdv]
-                    d2Qdmdv = [[diff(dQdv_k, m_j) for m_j in self._m] for dQdv_k in dQdv]
-
-                if self._L is not None:
-                    d2Ldudv = [derivative(dLdv_k, self._u) for dLdv_k in dLdv]
-                    d2Ldmdv = [[diff(dLdv_k, m_j) for m_j in self._m] for dLdv_k in dLdv]
-
-            def assemble_d2Jdudv(k):
-                d2Jdudv_k = 0.0
-                if self._Q is not None:
-                    d2Jdudv_k = assemble(d2Qdudv[k])
-                if self._L is not None:
-                    d2Jdudv_k += self._assemble_dLdu()*assemble(dLdv[k]) \
-                                 + assemble(d2Ldudv[k])*self._assemble_L()
-                return d2Jdudv_k # -> vector
-
-            def assemble_d2Jdmdv(k, j_m):
-                d2Jdmdv_kj = 0.0
-                if self._Q is not None:
-                    d2Jdmdv_kj = assemble(d2Qdmdv[k][j_m])
-                if self._L is not None:
-                    d2Jdmdv_kj += self._assemble_dLdm()[j_m]*assemble(dLdv[k]) \
-                                  + assemble(d2Ldmdv[k][j_m])*self._assemble_L()
-                return d2Jdmdv_kj # -> float
-
-            def assemble_dDJDmdv(i):
-
-                slice_i = slices[i];
-                dims_i = slice_i.stop - slice_i.start
-                dDJDmdv_i = np.zeros((self._n, dims_i), float)
-
-                if not_ignore_dJdv:
-
-                    for j_m, dudm_j in enumerate(self._dudm):
-                        for k_dim, k_v in enumerate(range(slice_i.start, slice_i.stop)):
-
-                            dDJDmdv_i[j_m, k_dim] = assemble_d2Jdmdv(k_v, j_m) \
-                                + assemble_d2Jdudv(k_v).inner(dudm_j.vector())
-
-                if not_ignore_dFdv:
-
-                    assembled_dJdu = self._assemble_dJdu()
-                    assembled_d2Jdudm = self._assemble_d2Jdudm()
-
-                    for j_m, dudm_j in enumerate(self._dudm):
-                        for k_dim, k_v in enumerate(range(slice_i.start, slice_i.stop)):
-
-                            dDJDmdv_i[j_m, k_dim] += \
-                                assembled_dJdu.inner(d2udmdv[k_v][j_m].vector()) \
-                                + assembled_d2Jdudm[j_m].inner(dudv[k_v].vector()) \
-                                + self._assemble_action_d2Jdu2(dudm_j, dudv[k_v])
-
-                return dDJDmdv_i # -> 2D array
-
-        elif is_type_function:
-
-            if not_ignore_dFdv:
-                raise RuntimeError('Not possible to compute sensitivities with respect '
-                                   'to `dolfin.Function`(s). The sensitivities can only '
-                                   'be computed if the paramter `ignore_dFdv` is `True`.')
-
-            assert not_ignore_dJdv
-
-            if self._Q is not None:
-                dQdv    = [derivative(self._Q, v_i) for v_i in v]
-                d2Qdudv = [derivative(dQdv_i, self._u) for dQdv_i in dQdv] # NOTE: `u` is second argument
-                d2Qdmdv = [[diff(dQdv_i, m_j) for m_j in self._m] for dQdv_i in dQdv]
-
-            if self._L is not None:
-                dLdv    = [derivative(self._L, v_i) for v_i in v]
-                d2Ldudv = [derivative(dLdv_i, self._u) for dLdv_i in dLdv] # NOTE: `u` is second argument
-                d2Ldmdv = [[diff(dLdv_i, m_j) for m_j in self._m] for dLdv_i in dLdv]
-
-            # def assemble_d2Jdudv(i):
-            #     # IMPORTANT: `v_i` must be first argument, `u` must be second argument
-            #     d2Jdudv_i = 0.0
-            #     if self._Q is not None:
-            #         # FIXME: This is waisting time and memory
-            #         d2Jdudv_i = assemble(d2Qdudv[i]).array()
-            #     if self._L is not None:
-            #         # FIXME: This is waisting time and memory
-            #         d2Jdudv_i += np.outer(assemble(dLdv[i]).get_local(), self._assemble_dLdu().get_local())
-            #         d2Jdudv_i += assemble(d2Ldudv[i]).array()*self._assemble_L()
-            #     return d2Jdudv_i # -> 2D array
-
-            def assemble_action_d2Jdudv_dudm(i, dudm_j):
-                '''Avoid explicitly assembling `d2Jdudv`.'''
-                d2Jdudv_i_inner_dudm_j = 0.0
-                if self._Q is not None:
-                    try: d2Jdudv_i_inner_dudm_j += assemble(action(d2Qdudv[i], dudm_j))
-                    except IndexError: pass # The action is zero
-                if self._L is not None:
-                    d2Jdudv_i_inner_dudm_j += assemble(dLdv[i])*(self._assemble_dLdu().inner(dudm_j.vector()))
-                    try: d2Jdudv_i_inner_dudm_j += assemble(action(d2Ldudv[i], dudm_j))*self._assemble_L()
-                    except IndexError: pass # The action is zero
-                return d2Jdudv_i_inner_dudm_j
-
-            def assemble_d2Jdmdv(i, j_m):
-                d2Jdmdv_ij = 0.0
-                if self._Q is not None:
-                    d2Jdmdv_ij = assemble(d2Qdmdv[i][j_m])
-                if self._L is not None:
-                    d2Jdmdv_ij += assemble(dLdv[i])*self._assemble_dLdm()[j_m] \
-                                  + assemble(d2Ldmdv[i][j_m])*self._assemble_L()
-                return d2Jdmdv_ij # -> vector
-
-            def assemble_dDJDmdv(i):
-                dDJDmdv_i = np.zeros((self._n, v[i].vector().size()), float)
-                for j_m, dudm_j in enumerate(self._dudm):
-                    dDJDmdv_i[j_m,:] += (assemble_action_d2Jdudv_dudm(i, dudm_j)
-                                         + assemble_d2Jdmdv(i, j_m)).get_local()
-                return dDJDmdv_i # -> 2D array
-
-        else:
-            raise TypeError('Parameter `v` must contain exclusively either '
-                            '`dolfin.Constant`s or `dolfin.Function`s.')
-
-        D2JDm2 = None # to be alias for current `self._property['cumsum_D2JDm2']`
-        inv_D2JDm2 = None # to compute inverse of `D2JDm2` when `D2JDm2` changes
-
-        def observe_dmdv(t=None):
-            '''Compute the local model parameter sensitivities at time `t`.
-
-            Parameters
-            ----------
-            t : float or int or None (optional)
-                Time at which to compute the model parameter sensitivities.
-                If `t` is `None` then `t` defaults to the current time.
-
-            Returns
-            -------
-            dmdv : list of numpy.ndarray's (2D)
-                The model parameter sensitivities. The value at `dmdv[I][J,K]`
-                corresponds to the `I`th argument, the `J`th model parameter
-                sensitivity with respect to the `K`th DOF of the argument.
-
-            '''
-
-            nonlocal D2JDm2
-            nonlocal inv_D2JDm2
-
-            if t is None:
-                t = self._property['observation_time']
-                if t is None and self._property['cumsum_D2JDm2'] is None:
-                    raise RuntimeError('Parameter `t` can not be `None`')
-
-            if not self._property['is_converged']:
-                logger.info('Inverse solver is not converged')
-
-            if self._property['cumsum_D2JDm2'] is None:
-                logger.info('Solving forward problem')
-                self.solve_forward_problem()
-
-            if D2JDm2 is not self._property['cumsum_D2JDm2']:
-                D2JDm2 = self._property['cumsum_D2JDm2']
-
-                try: # Could be ill-conditioned
-                    inv_D2JDm2 = linalg.inv(D2JDm2)
-                except linalg.LinAlgError:
-                    inv_D2JDm2 = linalg.pinv(D2JDm2)
-
-            if self.require_nonlinear_solution(t):
-                self.update_nonlinear_solution(t)
-
-            if self._property['is_expired_dudm']:
-                self._compute_dudm()
-
-            if not_ignore_dFdv:
-                compute_dudv_d2udmdv()
-
-            dmdv = []
-
-            for i in range(len(v)):
-                dmdv.append(inv_D2JDm2.dot(-assemble_dDJDmdv(i)))
-
-            return dmdv
-
-        return observe_dmdv
-
-
-    def observe_dmdu(self, t=None, constraint_vectors=None):
-        '''Estimate the model parameter sensitivities with respect to an
-        arbitrary perturbation of the degrees of freedom of the primary field.
-
-        Method
-        ------
-        The method is based on the solution to the following problem:
-
-            $\frac{du}{dm} dm_{perturb} = du_{perturb}$,
-
-        whose variational form can be defined as
-
-            $\frac{du}{dm_I} (\frac{du}{dm_J} {dm_{perturb}}_J - du_{perturb}) = 0
-                \quad \forall I$
-
-        Notes
-        -----
-        The constraint vectors will typically be for the reaction forces. For
-        example, suppose you wish to compute the sensitivities of the cost
-        subject to the constness of an observed reaction force on a measurement
-        boundary. The reaction force variation (i.e. a constraint vector) can
-        be obtained useing `observe_dfdm(t)[i_msr][i_dim]` where `i_msr` denotes
-        a particular measurement and `i_dim` -- the observed force component.
-
-        Important
-        ---------
-        The number of constraint vectors must be fewer than the number of
-        model parameters with respect to which the cost sensitivity will be
-        computed.
-
-        Todo
-        ----
-        The model parameter sensitivities are obtained with respect to a
-        variation in the primary field, which is generally not the same as the
-        displacement field because the primary field may be a mixed function
-        space. It would be more useful to compute the sensitivities just with
-        respect to the variations in the model displacement field. To do this,
-        the displacement field degrees of freedom need to be extracted from the
-        primary field.
-
-        Returns
-        -------
-        dmdu : numpy.ndarray (2D)
-            Model parameter sensitivities for observation time `t` with respect
-            to the perturbations of the degrees of freedom of the primary field.
-
-        '''
-
-        MAXCOND = 1e9
-
-        dx = dolfin.dx
-        dot = dolfin.dot
-
-        du = dolfin.TestFunction(self._V)
-        dudm = self.observe_dudm(t, False)
-
-        if (hasattr(constraint_vectors, '__len__')
-            and len(constraint_vectors) != 0):
-            C = constraint_vectors
-        else:
-            C = None
-
-        if C is not None:
-
-            C = self._std_model_parameter_constraints(C)
-            R = self._compute_orthogonalizing_operator(C)
-
-            eigval, eigvec = np.linalg.eigh(R)
-            abs_eigval = np.abs(eigval)
-
-            eigvec = eigvec[:, abs_eigval > abs_eigval.max() / MAXCOND]
-
-            dudm = tuple(sum(dudm_i*dm_i
-                for dudm_i, dm_i in zip(dudm, dm_hat))
-                for dm_hat in eigvec.T)
-
-            local_to_global_transform = eigvec
-
-        else:
-            local_to_global_transform = np.identity(self._n)
-
-        n = len(dudm)
-        A = np.zeros((n, n))
-        B = np.zeros((n, self._V.dim()))
-
-        for i, dudm_i in enumerate(dudm):
-            A[i,i] = assemble(dot(dudm_i, dudm_i)*dx)
-            B[i,:] = assemble(dot(dudm_i, du)*dx).get_local()
-            for j, dudm_j in enumerate(dudm[i+1:], start=i+1):
-                A[i,j] = assemble(dot(dudm_i, dudm_j)*dx)
-                A[j,i] = A[i,j]
-
-        ind = np.flatnonzero(A.any(1))
-
-        if len(ind):
-
-            A = A[ind,:][:,ind]
-            B = B[ind,:]
-
-            x = linalg.inv(A).dot(B) # Local axes values
-            dmdu = local_to_global_transform[:,ind].dot(x)
-
-        else:
-            dmdu = np.zeros((n, self._V.dim()))
-
-        return dmdu
-
-
-    def observe_f_obs(self, ts=None):
-        '''Compute the model reaction forces.
-
-        Parameters
-        ----------
-        ts : numeric value or a sequence of numeric values (optional)
-            The observation time(s). If `ts` is an iterable, compute the model
-            reaction forces for each time in `ts`. If `ts` is `None`, compute
-            the forces for the current time.
-
-        Returns
-        -------
-        f_obs : list of list's of numpy.ndarray's (1D)
-            The observed (model) reaction forces. The value at `f_obs[I][J][K]`
-            corresponds to the `I`th measurement, `J`th observation time, and
-            the `K`th reaction force component.
-
-        '''
-
-        f_obs = []
-
-        if ts is None:
-            ts = self.observation_time
-
-        for t in self._std_observation_times(ts):
-            self.update_nonlinear_solution(t)
-            f_obs.append([np.array([assemble(fj_obs_i)
-                          for fj_obs_i in f_obs_i])
-                          for f_obs_i in self._f_obs])
-
-        # Current indexing: time, observed force, force component
-        # Reorder indexing: observed force, time, force component
-
-        if hasattr(ts, '__len__') or len(f_obs) > 1:
-            f_obs = [[np.array(f_obs_t[i_obs]) for f_obs_t in f_obs]
-                     for i_obs in range(len(self._f_obs))]
-        else:
-            f_obs = [np.array(f_obs[0][i_obs])
-                     for i_obs in range(len(self._f_obs))]
-
-        return f_obs
-
-
-    def observe_f_msr(self, ts=None):
-        '''Retrieve the measured reaction forces.
-
-        ts : numeric value or a sequence of numeric values (optional)
-            The observation time(s). If `ts` is an iterable, compute the forces
-            for each value of time in `ts`. If `ts` is `None`, compute the model
-            reaction forces for the current time.
-
-        Returns
-        -------
-        f_msr : list of list's of numpy.ndarray's (1D)
-            The measured (experimental) forces. The value at `f_msr[I][J][K]`
-            corresponds to the `I`th measurement, `J`th observation time, and
-            the `K`th reaction force component.
-
-        '''
-
-        f_msr = []
-
-        t_cur = self.observation_time
-
-        if ts is None:
-            ts = t_cur
-
-        for t in self._std_observation_times(ts):
-            self._override_measurement_time(t)
-            f_msr.append([np.array([assemble(fj_msr_i)
-                          for fj_msr_i in f_msr_i])
-                          for f_msr_i in self._f_msr])
-
-        if t != t_cur:
-            self._reset_measurement_time()
-
-        # Current indexing: time, measured force, force component
-        # Reorder indexing: measured force, time, force component
-
-        if hasattr(ts, '__len__') or len(f_msr) > 1:
-            f_msr = [[np.array(f_msr_t[i_msr]) for f_msr_t in f_msr]
-                     for i_msr in range(len(self._f_msr))]
-        else:
-            f_msr = [np.array(f_msr[0][i_msr])
-                     for i_msr in range(len(self._f_msr))]
-
-        return f_msr
-
-
-    def observe_dfdm(self, ts=None):
-        '''Compute the sensitivities of the model reaction forces.
-
-        Parameters
-        ----------
-        ts : numeric value or a sequence of numeric values (optional)
-            The observation time(s). If `ts` is an iterable, compute the model
-            reaction force sensitivities for each time in `ts`. If `ts` is
-            `None`, compute the sensitivities for the current time.
-
-        Returns
-        -------
-        dfdm : list of list's of numpy.ndarray's (2D)
-            Sensitivities of the model reaction forces. The value at `dfdm[I][J]
-            [K,L]` corresponds to the `I`th observed force, `J`th observation
-            time, `K`th force component, and `L`th model parameter.
-
-        '''
-
-        dfdm = []
-
-        if ts is None:
-            ts = self.observation_time
-
-        for t in self._std_observation_times(ts):
-            dudm = self.observe_dudm(t, copy=False)
-
-            dfdm.append([np.array([[assemble(dfjdmk_obs_i)
-                + assemble(dfjdu_obs_i).inner(dudm_k.vector())
-                for dfjdmk_obs_i, dudm_k in zip(dfjdm_obs_i, dudm)]
-                for dfjdm_obs_i, dfjdu_obs_i in zip(dfdm_obs_i, dfdu_obs_i)])
-                for dfdm_obs_i, dfdu_obs_i in zip(self._dfdm, self._dfdu)])
-
-        # Current indexing: time, observed force, force component, model parameter
-        # Reorder indexing: observed force, time, force component, model parameter
-
-        if hasattr(ts, '__len__') or len(dfdm) > 1:
-            dfdm = [[np.array(dfdm_t[i_obs]) for dfdm_t in dfdm]
-                    for i_obs in range(len(self._f_obs))]
-        else:
-            dfdm = [np.array(dfdm[0][i_obs])
-                    for i_obs in range(len(self._f_obs))]
-
-        return dfdm
-
-
-    def observe_dfdm_dm(self, dm, ts=None):
-        '''Compute the directional sensitivities of the model reaction forces.
-
-        Parameters
-        ----------
-        dm : sequence of scalar values
-            Directional change in the model parameters.
-
-        Returns
-        -------
-        dfdm_dm : list of (list's of) numpy.ndarray's (1D)
-            Directional derivative of the observed force. The value at `dfdm[I]
-            [J][K]` corresponds to the `I`th observed force, `J`th observation
-            time, `K`th force component. If `ts` is not a sequence, the index
-            `J` is squeezed out.
-
-        '''
-
-        if not hasattr(dm, '__len__') or len(dm) != self._n:
-            raise TypeError('Parameter `dm` must be sequence-like whose length is '
-                            f'equal to the number of model parameters ({self._n}).')
-
-        if ts is None:
-            ts = self.observation_time
-
-        if not isinstance(dm, np.ndarray):
-            dm = np.array([float(dm_i) for dm_i in dm])
-
-        dfdm = [[dfdm_obs_it.dot(dm) for dfdm_obs_it in dfdm_obs_i] for dfdm_obs_i
-                in self.observe_dfdm(ts if hasattr(ts, '__getitem__') else (ts,))]
-
-        if not hasattr(ts, '__getitem__'): # Collapse time
-            dfdm = [dfdm_obs_i[0] for dfdm_obs_i in dfdm]
-
-        return dfdm
-
-
-    def observe_u(self, t=None, copy=True):
-        '''Nonlinear solution at time `t`.'''
-
-        if self.require_nonlinear_solution(t):
-            self.update_nonlinear_solution(t)
-
-        return self._u.copy(True) if copy else self._u
-
-
-    def observe_dudm(self, t=None, copy=True):
-        '''Partial derivatives of the primary field at time `t`.'''
-
-        if self.require_nonlinear_solution(t):
-            self.update_nonlinear_solution(t)
-
-        return super().observe_dudm(t, copy)
-
-
-    def observe_d2udm2(self, t=None, copy=True):
-        '''Compute partial derivatives of the primary field with respect to
-        the model parameters at observation time `t`. Note, since the matrix
-        d2u/dm2 is symmetric, only the upper triangular part is returned.'''
-
-        if self.require_nonlinear_solution(t):
-            self.update_nonlinear_solution(t)
-
-        return super().observe_d2udm2(t, copy)
-
-
-    def observe_dudm_dm(self, dm, t=None):
-        '''Compute the directional sensitivity of the primary field.
-
-        Parameters
-        ----------
-        dm : sequence of scalar values
-            Directional change in the model parameters.
-
-        Returns
-        -------
-        dudm_dm : dolfin.Function
-            Directional derivative of the primary field.
-
-        '''
-
-        if not hasattr(dm, '__len__') or len(dm) != self._n:
-            raise TypeError('Parameter `dm` must be sequence-like whose length is '
-                            f'equal to the number of model parameters ({self._n}).')
-
-        dudm_dm = Function(self._V)
-
-        if any(dm):
-            dudm_dm.assign(sum(dudm_i*dm_i for dudm_i, dm_i
-                in zip(self.observe_dudm(t, copy=False), dm)))
-
-        return dudm_dm
-
-
-    def test_model_parameter_sensitivity_dmdm(self):
-        '''Compute the predicted and the expected model parameter self-sensitivities.
-
-        Notes
-        -----
-        The predicted sensitivities must be close to the negative of the identity
-        matrix, which means that if the model parameters were to be perturbed in
-        some direction then there would be a corresponding restoration in the
-        opposite direction.
-
-        '''
-
-        dmdm_predicted = sum(self.observe_dmdm(t, copy=False)
-                             for t in self.observation_times)
-
-        dmdm_expected = -np.identity(len(dmdm_predicted), float)
-
-        return dmdm_predicted, dmdm_expected
-
-
-    def test_model_parameter_sensitivity_dmdT_msr(self, h=1e-2):
-        '''Finite-difference test of the model parameter sensitivities with respect to
-        arguments. The measurement perturbations are generated from a random uniform
-        distribution. The perturbation magnitudes are normalized to the value of `h`.
-
-        Returns
-        -------
-        dm_predicted: numpy.ndarray (1D)
-            Predicted change in model parameter values.
-
-        dm_expected: numpy.ndarray (1D)
-            Expected change in model parameter values.
-
-        '''
-        return self.test_model_parameter_sensitivity_dmdv(
-            self.observe_dmdT_msr, self._dT_msr_dummy, h)
-
-
-    def test_model_parameter_sensitivity_dmdu_msr(self, h=1e-2):
-        '''Finite-difference test of the model parameter sensitivities with respect to
-        arguments. The measurement perturbations are generated from a random uniform
-        distribution. The perturbation magnitudes are normalized to the value of `h`.
-
-        Returns
-        -------
-        dm_predicted: numpy.ndarray (1D)
-            Predicted change in model parameter values.
-
-        dm_expected: numpy.ndarray (1D)
-            Expected change in model parameter values.
-
-        '''
-        return self.test_model_parameter_sensitivity_dmdv(
-            self.observe_dmdu_msr, self._du_msr_dummy, h)
-
-
-    def test_model_parameter_sensitivity_dmdv(self, observe_dmdv, v, h):
-        '''Finite-difference test of the model parameter sensitivities with respect to
-        arguments. The measurement perturbations are generated from a random uniform
-        distribution. The perturbation magnitudes are normalized to the value of `h`.
-
-        Parameters
-        ----------
-        self : invsolve.InverseSolver
-            Instance of an `InverseSolver`.
-        v : (sequence of) either dolfin.Function's or dolfin.Constant's
-            Arguments.
-        h : float
-            Stepsize.
-
-        Returns
-        -------
-        dm_predicted: numpy.ndarray (1D)
-            Predicted change in model parameter values.
-
-        dm_expected: numpy.ndarray (1D)
-            Expected change in model parameter values.
-
-        Limitations
-        -----------
-        The same perturbation direction is assumed for all observation times.
-        This is simpler to implement but not as general as allowing for arbitrary
-        perturbation directions at different observation times.
-
-        '''
-
-        GENERATE_PERTURBATION_DIRECTION = np.random.rand
-
-        if not self._property['is_converged']:
-            logger.warning('Results may be inaccurate because '
-                           'the solver is not converged.')
-
-        if self.parameters_inverse_solver['absolute_tolerance'] > 1e-6:
-            logger.warning('Results may be inaccurate because the solver '
-                           'convergence parameter "absolute_tolerance" '
-                           'may be insufficiently small.')
-
-        if self.parameters_inverse_solver['relative_tolerance'] > 1e-6:
-            logger.warning('Results may be inaccurate because the solver '
-                           'convergence parameter "relative_tolerance" '
-                           'may be insufficiently small.')
-
-        if self.parameters_inverse_solver['maximum_relative_change']:
-            logger.warning('Results may be inaccurate because the solver '
-                           'parameter "maximum_relative_change" has '
-                           'been prescribed.')
-
-        vs = v if isinstance(v, SEQUENCE_TYPES) else (v,)
-
-        is_type_function = all(isinstance(vi, Function) for vi in vs)
-        is_type_constant = all(isinstance(vi, Constant) for vi in vs) \
-                               if not is_type_function else False
-
-        if not (is_type_function or is_type_constant):
-            raise TypeError('Expected parameter `v` to contain either '
-                            '`dolfin.Function`(s) or `dolfin.Constant`(s).')
-
-        # Backup current values of the arguments `v`
-
-        if is_type_function:
-            vs_arr = [vi.vector().get_local() for vi in vs]
-        else: # is_type_constant
-            vs_arr = [vi.values() for vi in vs]
-
-        # Compute perturbation values
-
-        dvs_arr = []
-
-        for vi_arr in vs_arr:
-            dvi_arr = GENERATE_PERTURBATION_DIRECTION(len(vi_arr))
-            dvi_arr *= h / sqrt(dvi_arr.dot(dvi_arr))
-            dvs_arr.append(dvi_arr)
-
-        if __debug__:
-
-            if is_type_function:
-                if any(dmdvi.shape[-1] != len(vi) for dmdvi, vi
-                       in zip(observe_dmdv(copy=False), vs_arr)):
-                    raise TypeError('Parameter `v`')
-
-            else: # is_type_constant
-                if any(dmdvi.shape[-1] != len(vi) for dmdvi, vi
-                       in zip(observe_dmdv(copy=False), vs_arr)):
-                    raise TypeError('Parameter `v`')
-
-        # Back up current model parameter values
-
-        m0 = np.array(self.view_model_parameter_values())
-
-        # Predict model parameter change
-
-        dm_predicted = \
-            sum(sum(dmdvi.dot(dvi) for dmdvi, dvi
-            in zip(observe_dmdv(t, False), dvs_arr))
-            for t in self.observation_times)
-
-        # Perturb arguments using perturbation values
-
-        if is_type_function:
-            for vi, vi_arr, dvi_arr in zip(vs, vs_arr, dvs_arr):
-                vi.vector()[:] = vi_arr + dvi_arr
-
-        else: # is_type_constant
-            for vi, vi_arr, dvi_arr in zip(vs, vs_arr, dvs_arr):
-                if len(vi.ufl_shape):
-                    vi.assign(Constant(vi_arr + dvi_arr)) # Vector-valued
-                else: # vi.ufl_shape == ()
-                    vi.assign(vi_arr[0] + dvi_arr[0]) # Scalar-valued
-
-        try:
-
-            # Compute perturbed model parameter values
-
-            if not self.solve_inverse_problem()[1]:
-                raise RuntimeError('Inverse solver did not converge')
-
-            m1 = np.array(self.view_model_parameter_values())
-
-        finally:
-
-            # Restore original model parameter and argument values
-
-            self.assign_model_parameters(m0)
-
-            if is_type_function:
-                for vi, vi_arr in zip(vs, vs_arr):
-                    vi.vector()[:] = vi_arr
-
-            else: # is_type_constant
-                for vi, vi_arr in zip(vs, vs_arr):
-                    if len(vi.ufl_shape):
-                        vi.assign(Constant(vi_arr)) # Vector-valued
-                    else: # vi.ufl_shape == ()
-                        vi.assign(vi_arr[0]) # Scalar-valued
-
-        # Resolve the inverse problem for the original values
-
-        if not self.solve_inverse_problem()[1]:
-            raise RuntimeError('Inverse solver did not converge')
-
-        return dm_predicted, m1-m0
-
-
-    @property
-    def num_u_msr(self):
-        return len(self._dx_msr)
-
-    @property
-    def num_T_msr(self):
-        return len(self._ds_msr)
-
-    @property
-    def num_f_msr(self):
-        return len(self._ds_msr)
-
-
-    @staticmethod
-    def _std_init_args_u_obs_u_msr_dx_msr(u_obs, u_msr, dx_msr):
-        '''Return standardized initialization arguments.
-
-        Parameters
-        ----------
-        u_obs : vector dolfin.Function
-            Observed displacement field.
-        u_msr : (sequence of) vector-like ufl expression(s).
-            Measured displacement fields.
-        dx_msr : (sequence of) dolfin.Measure(s).
-            Integration measures.
-
-        '''
-
-        if not isinstance( u_msr, SEQUENCE_TYPES): u_msr  = ( u_msr,)
-        if not isinstance(dx_msr, SEQUENCE_TYPES): dx_msr = (dx_msr,)
-
-        if len(u_msr) != len(dx_msr):
-            raise TypeError('Parameters `u_msr` and `dx_msr`')
-
-        if not (isinstance(u_obs, ufl_expr_t) and len(u_obs.ufl_shape) == 1):
-            raise TypeError('Parameter `u_obs`')
-
-        if not all(isinstance(u_msr_i, ufl_expr_t) and \
-           u_msr_i.ufl_shape == u_obs.ufl_shape for u_msr_i in u_msr):
-            raise TypeError('Parameters `u_msr` and `u_obs`')
-
-        if not all(isinstance(dx_msr_i, Measure) for dx_msr_i in dx_msr):
-            raise TypeError('Parameter `dx_msr`')
-
-        if not isinstance( u_msr, tuple): u_msr  = tuple( u_msr)
-        if not isinstance(dx_msr, tuple): dx_msr = tuple(dx_msr)
-
-        return u_obs, u_msr, dx_msr
-
-
-    @staticmethod
-    def _std_init_args_T_obs_T_msr_ds_msr(T_obs, T_msr, ds_msr):
-        '''Return standardized initialization arguments.
-
-        Parameters
-        ----------
-        T_obs : (sequence of (sequences of)) vector ufl expression(s)
-            Observed tractions.
-        T_msr : (sequence of (sequences of)) vector ufl expression(s)
-            Measured tractions.
-        ds_msr : (sequence of (sequences of)) dolfin.Measure(s)
-            Integration measures.
-
-        '''
-
-        if not isinstance(ds_msr, SEQUENCE_TYPES):
-            T_obs, T_msr, ds_msr = (T_obs,), (T_msr,), (ds_msr,)
-
-        else:
-
-            if not isinstance(T_obs, SEQUENCE_TYPES): T_obs = (T_obs,)
-            if not isinstance(T_msr, SEQUENCE_TYPES): T_msr = (T_msr,)
-
-            if len(T_obs) != len(ds_msr):
-                raise TypeError('Parameters `T_obs` and `ds_msr`')
-
-            if len(T_msr) != len(ds_msr):
-                raise TypeError('Parameters `T_msr` and `ds_msr`')
-
-        for i, (T_obs_i, T_msr_i, ds_msr_i) in enumerate(zip(T_obs, T_msr, ds_msr)):
-
-            if not isinstance( T_obs_i, SEQUENCE_TYPES): T_obs_i  = ( T_obs_i,)
-            if not isinstance( T_msr_i, SEQUENCE_TYPES): T_msr_i  = ( T_msr_i,)
-            if not isinstance(ds_msr_i, SEQUENCE_TYPES): ds_msr_i = (ds_msr_i,)
-
-            if not all(isinstance(T_obs_ij, ufl_expr_t) for T_obs_ij in T_obs_i):
-                raise TypeError('Parameter `T_obs`')
-
-            if not all(isinstance(T_msr_ij, ufl_expr_t) for T_msr_ij in T_msr_i):
-                raise TypeError('Parameter `T_msr`')
-
-            if not all(isinstance(ds_msr_ij, Measure) for ds_msr_ij in ds_msr_i):
-                raise TypeError('Parameter `ds_msr`')
-
-            ufl_shape_obs = T_obs_i[0].ufl_shape
-            ufl_shape_msr = T_msr_i[0].ufl_shape
-
-            if len(ufl_shape_obs) != 1:
-                raise TypeError('Parameter `T_obs`')
-
-            if len(ufl_shape_msr) != 1:
-                raise TypeError('Parameters `T_msr`')
-
-            if any(T_obs_ij.ufl_shape != ufl_shape_obs for T_obs_ij in T_obs_i[1:]):
-                raise TypeError('Parameter `T_obs`')
-
-            if any(T_msr_ij.ufl_shape != ufl_shape_msr for T_msr_ij in T_msr_i[1:]):
-                raise TypeError('Parameter `T_msr`')
-
-            if ufl_shape_obs != ufl_shape_msr:
-                raise TypeError('Parameters `T_obs` and `T_msr`')
-
-            if len(ds_msr_i) > 1:
-                if len(T_obs_i) == 1:
-                    if len(T_msr_i) == 1:
-                        ds_msr_i = (sum(ds_msr_i[1:], ds_msr_i[0]),)
-                    else:
-                        T_obs_i = (T_obs_i[0],) * len(ds_msr_i)
-                elif len(T_msr_i) == 1:
-                    T_msr_i = (T_msr_i[0],) * len(ds_msr_i)
-
-            if not (len(T_obs_i) == len(T_msr_i) == len(ds_msr_i)):
-                raise RuntimeError('Parameters `T_obs`, `T_msr` and `ds_msr`')
-
-            if not isinstance( T_obs_i, tuple): T_obs_i  = tuple( T_obs_i)
-            if not isinstance( T_msr_i, tuple): T_msr_i  = tuple( T_msr_i)
-            if not isinstance(ds_msr_i, tuple): ds_msr_i = tuple(ds_msr_i)
-
-            if T_obs_i is not T_obs[i]:
-                if not isinstance(T_obs, list): T_obs = list(T_obs)
-                T_obs[i] = T_obs_i if isinstance(T_obs_i, tuple) else tuple(T_obs_i)
-
-            if T_msr_i is not T_msr[i]:
-                if not isinstance(T_msr, list): T_msr = list(T_msr)
-                T_msr[i] = T_msr_i if isinstance(T_msr_i, tuple) else tuple(T_msr_i)
-
-            if ds_msr_i is not ds_msr[i]:
-                if not isinstance(ds_msr, list): ds_msr = list(ds_msr)
-                ds_msr[i] = ds_msr_i if isinstance(ds_msr_i, tuple) else tuple(ds_msr_i)
-
-        if any(T_obs_i[0].ufl_shape != ufl_shape_obs for T_obs_i in T_obs[:-1]):
-            raise TypeError('Parameter `T_obs` (and `T_msr`)')
-
-        if not isinstance( T_obs, tuple): T_obs  = tuple( T_obs)
-        if not isinstance( T_msr, tuple): T_msr  = tuple( T_msr)
-        if not isinstance(ds_msr, tuple): ds_msr = tuple(ds_msr)
-
-        return T_obs, T_msr, ds_msr
-
-
-    @staticmethod
-    def _std_subdims_v_msr(subdims, size_msr, dim_max):
-        '''Standardized indices into subdimensions of `u_msr` or `f_msr`.
-
-        Parameters
-        ----------
-        subdims : integer, integer sequence, or sequence of integer sequences
-            Generic form of subdimension indices into measurements.
-
-        Returns
-        ----------
-        subdims : sequence of integer sequence(s)
-            Standardized subdimension indices into measurements.
-
-        '''
-
-        if subdims is None:
-            subdims = (range(dim_max),) * size_msr
-        else:
-            if hasattr(subdims, '__getitem__'):
-                if all(hasattr(sub_i, '__getitem__') for sub_i in subdims):
-
-                    if not all(isinstance(dim_j, int)
-                               for sub_i in subdims for dim_j in sub_i):
-                        raise TypeError('Parameter `subdims` (sequence of sequences) '
-                                        'contains non-integer subdimension indices')
-
-                    if not all(-dim_max <= dim_j < dim_max \
-                               for sub_i in subdims for dim_j in sub_i):
-                        raise ValueError('Parameter `subdims` (sequence of sequences) '
-                                         'contains out-of-bounds subdimension indices')
-
-                    if len(subdims) != size_msr:
-                        if len(subdims) == 0:
-                            subdims = (subdims,) * size_msr
-                        elif len(subdims) == 1:
-                            subdims = (subdims[0],) * size_msr
-                        else:
-                            raise IndexError('Parameter `subdims` (sequence of sequences) must '
-                                             'have length equal to the number of measurements')
-
-                elif all(isinstance(dim_i, int) for dim_i in subdims):
-
-                    if not all(-dim_max <= dim_i < dim_max for dim_i in subdims):
-                        raise ValueError('Parameter `subdims` (sequence of integers) '
-                                         'contains out-of-bounds subdimension indices')
-
-                    subdims = (subdims,) * size_msr
-
-                else:
-                    raise TypeError
-
-            elif isinstance(subdims, int):
-
-                if not (-dim_max <= subdims < dim_max):
-                    raise ValueError('Parameter `subdims` (integer) is '
-                                     'out-of-bounds as a subdimension index')
-
-                subdims = ((subdims,),) * size_msr
-
-            else:
-                raise TypeError('Parameter `subdims`')
-
-        return subdims
-
-
-    def _std_model_parameter_constraints(self, constraint_vectors):
-
-        if not isinstance(constraint_vectors, np.ndarray):
-            constraint_vectors = np.array(constraint_vectors, ndmin=2)
-
-        elif constraint_vectors.ndim == 1:
-            constraint_vectors = constraint_vectors[np.newaxis,:]
-
-        if constraint_vectors.shape[0] >= self._n or \
-           constraint_vectors.shape[1] != self._n:
-            raise TypeError('Each constraint vector must have length equal '
-                            f'to the number of model parameters ({self._n}) '
-                            'and the number of such vectors should be fewer '
-                            'than the number of model parameters.')
-
-        return constraint_vectors
-
-
-    @staticmethod
-    def _compute_orthogonalizing_operator(sequence_of_vectors):
-        C = np.array(sequence_of_vectors, dtype=float, copy=False, ndmin=2)
-        return np.identity(len(C.T)) - C.T.dot(linalg.inv(C.dot(C.T)).dot(C))
+    return vars_list

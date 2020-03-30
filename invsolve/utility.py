@@ -1,73 +1,67 @@
-'''
-Some utility methods.
+'''Some useful methods.'''
 
-'''
+import ufl
+import dolfin
 
-def list_values_from_iterable(iterable, value_types, value_list=None):
-    '''Extract values of specified types from a nested iterable to a list.
 
-    The traversal of `iterable` is left-to-right and depth-first.
+def factory_update_variables(vars, forms):
+    '''For assigning variables with values of integrals (forms).
 
     Parameters
     ----------
-    iterable (iterable): Nested iterables with attributes "index" or "keys".
-    value_types (tuple of type's): Extract values of types in `value_types`.
-    value_list (list or None): Extract values to `value_list` (optional).
+    vars : dolfin.Constant, or a list or tuple of dolfin.Constant's
+        Sequence of cost functional weights for the measurements.
+    forms : ufl.Form, or a list or tuple of ufl.Form's
+        Sequence of cost functional weights for the measurements.
 
-    Returns
-    -------
-    list: List of extracted values of types specified in `value_types`.
+    Important
+    ---------
+    All previously assembled forms are memoized. This is computationally
+    efficient but can problematic if any coefficient in the form is updated.
+    In this case, the cached values of the assembled forms must be cleared.
+    Call the returned function's attribute method `clear_cache` to do this.
 
     '''
 
-    if value_list is None:
-        value_list = []
+    if not isinstance(vars, (list,tuple)):  vars  = (vars,)
+    if not isinstance(forms, (list,tuple)): forms = (forms,)
 
-    if isinstance(iterable, value_types):
-        value_list.append(iterable)
+    if not all(isinstance(v, dolfin.Constant) for v in vars):
+        raise TypeError('Expected `vars` to contain `dolfin.Constant`s.')
 
-    elif hasattr(iterable, 'keys'):
-        for k in iterable.keys():
-            list_values_from_iterable(iterable[k], value_types, value_list)
+    if not all(isinstance(f, ufl.Form) for f in forms):
+        raise TypeError('Expected `forms` to contain `ufl.Form`s.')
 
-    elif hasattr(iterable, 'index'):
-        for iterable_i in iterable:
-            list_values_from_iterable(iterable_i, value_types, value_list)
+    # Memoize assembled
+    assembled_forms = {}
 
-    return value_list
+    def update_variables(t_ref=None):
+        '''Update variables `vars` (of type `dolfin.Constant`) by evaluating
+        `forms` (of type `ufl.Form`). Parameter `t_ref` is used to make a
+        key identifier for the value. The value can then be reused later. Note,
+        if `t_ref` is `None`, the form is reevaluated. Function's member method
+        `clear_cache` can be called to clear the dict of memoized forms.
+        '''
 
+        if t_ref is not None:
 
-def replicate_tree_structure(iterable, value_types):
-    '''Replicate tree-like structure of `iterable` keeping the original leaf
-    values provided the types are contained by `value_types`. If a leaf value
-    is not of any of the specified types, assume the value to be `None`.'''
+            for v, f in zip(vars, forms):
+                k = (t_ref, id(v))
 
-    def copy(iterable):
+                if k in assembled_forms:
+                    value = assembled_forms[k]
+                else:
+                    value = dolfin.assemble(f)
+                    assembled_forms[k] = value
 
-        if isinstance(iterable, value_types):
-            return iterable
-
-        elif hasattr(iterable, 'keys'):
-            return {k : copy(iterable[k]) for k in iterable.keys()}
-
-        elif hasattr(iterable, 'index'):
-            return [copy(iterable_i) for iterable_i in iterable]
+                v.assign(value)
 
         else:
-            return None
 
-    return copy(iterable)
+            for v, f in zip(vars, forms):
+                v.assign(dolfin.assemble(f))
 
+    # Call this method to clear previously assembled forms
+    update_variables.clear_cache = assembled_forms.clear
 
-def update_existing_keyvalues(lhs, rhs):
-    '''Recursively update values of dict-like `lhs` with those in `rhs`.'''
-
-    for k in rhs.keys():
-
-        if k not in lhs.keys():
-            raise KeyError(k)
-
-        if hasattr(lhs[k], 'keys') and hasattr(rhs[k], 'keys'):
-            update_existing_keyvalues(lhs[k], rhs[k])
-        else:
-            lhs[k] = rhs[k]
+    return update_variables
