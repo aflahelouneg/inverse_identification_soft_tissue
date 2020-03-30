@@ -6,4 +6,4 @@ After you activate your environment
 $ source activate <name_of_environment>
 
 Run an example problem as a module; for example, run it from an ipython interpreter like this
-$ run -m examples.basic_example_1
+$ run -m main
