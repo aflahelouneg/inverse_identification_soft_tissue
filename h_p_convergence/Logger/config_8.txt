@@ -1,0 +1,199 @@
+fenics@4baf0f113e06:~/shared$ python3 keloid_skin_main.py
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+
+0 / 25
+  "norm(DJDm_old)"     : inf
+  "norm(DJDm)"          : 156132.52123478273
+
+  "DJDm[dm]"           : -156132.521235
+
+  "D2JDm2[dm]"         : 0.0210335833251
+
+  "model param.,  m"    : [ 1.000000e+01  1.000000e+01  1.000000e+01  1.000000e+01  1.000000e-08]
+
+  "model param.,  dm"   : [ 3.277195e-06 -6.127535e-05  1.809282e-05  3.989534e-05 -1.000000e+01]
+
+  "direction cosine"   : 1.0
+
+  "residual est., dm"  : 7423011.04008
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5882133916895955
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+
+1 / 25
+  "norm(DJDm_old        : 213366.73660135746
+  "norm(DJDm)"
+  "DJDm[dm]"           : -213366.736601
+
+  "D2JDm2[dm]"         : -17457.150365
+
+  "model param.,  m"    : [ 1.000000e+01  9.999939e+00  1.000002e+01  1.000004e+01 -1.000000e+01]
+
+  "model param.,  dm"   : [ 4.113068e+00  3.024456e+00 -3.443827e+00  4.487985e+00 -8.181282e+00]
+
+  "direction cosine"   : 1.0
+
+  "residual est., dm"  : -12.2223118975
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : True
+
+  "is cost converging" : False
+
+  "the cost"}                   : -76382.96163259269
+
+
+LOGGER: minimize_cost_forall - WARNING
+  Model cost diverged {num_diverged} time(s).
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+
+2 / 25
+  "norm(DJDm_old        : 500148.7071503199
+  "norm(DJDm)"
+  "DJDm[dm]"           : -500148.70715
+
+  "D2JDm2[dm]"         : -46658.5127959
+
+  "model param.,  m"    : [ 1.411307e+01  1.302439e+01  6.556191e+00  1.448803e+01 -1.818128e+01]
+
+  "model param.,  dm"   : [ 6.932714e+00  4.186299e+00 -8.484958e+00  4.539111e+00 -8.937512e+00]
+
+  "direction cosine"   : 1.0
+
+  "residual est., dm"  : -10.7193452423
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : True
+
+  "is cost converging" : False
+
+  "the cost"}                   : -254818.9171985027
+
+
+LOGGER: minimize_cost_forall - WARNING
+  Model cost diverged {num_diverged} time(s).
+
+Solving nonlinear variational problem.
+  *** Warning: PETSc SNES solver diverged in 2 iterations with divergence reason DIVERGED_LINE_SEARCH.
+Traceback (most recent call last):
+  File "keloid_skin_main.py", line 608, in <module>
+    sensitivity_method='default', approximate_D2JDm2='default')
+  File "/home/fenics/shared/invsolve/invsolve.py", line 743, in minimize_cost_forall
+    DJDm, D2JDm2 = forward_solver()
+  File "/home/fenics/shared/invsolve/invsolve.py", line 905, in forward_solver
+    n, b = self.solve_nonlinear_problem(t)
+  File "/home/fenics/shared/invsolve/invsolve.py", line 418, in solve_nonlinear_problem
+    n, b = self._nonlinear_solver.solve()
+RuntimeError:
+
+*** -------------------------------------------------------------------------
+*** DOLFIN encountered an error. If you are not able to resolve this issue
+*** using the information listed below, you can ask for help at
+***
+***     fenics-support@googlegroups.com
+***
+*** Remember to include the error message listed below and, if possible,
+*** include a *minimal* running example to reproduce the error.
+***
+*** -------------------------------------------------------------------------
+*** Error:   Unable to solve nonlinear system with PETScSNESSolver.
+*** Reason:  Solver did not converge.
+*** Where:   This error was encountered inside PETScSNESSolver.cpp.
+*** Process: 0
+***
+*** DOLFIN version: 2018.1.0
+*** Git changeset:  948dc42cc4e06ed9227d0201ad50f94ac94cbf9f
+*** -------------------------------------------------------------------------
+
+fenics@4baf0f113e06:~/shared$

@@ -1,0 +1,271 @@
+project.py 
+
+Line 16 deleted
+line 14 edited (ModuleNotFoundError) is not defined in python < 3.6
+line 427 'assum_a = 'pos'' replaced by sym_pos=True (because of the version)
+
+
+
+
+
+invsolve.py
+
+line 616  'assum_a = 'sym'' replaced by sym_pos=True (because of the version)
+
+
+
+
+
+keloid_skin_data.py
+
+INTERPOLATE_MEASUREMENT = false
+line 493  msr_pad_one_ux = ux_reg_pad_one_filter
+line 494  msr_pad_one_fx = fx_reg_pad_one_filter
+
+
+
+
+keloid_skin_main.py
+
+add the command 'import dolfin'
+line 329 AssertionError (n_msr_dic and n_msr_pad don't have the same value): Disabled
+number of DIC mesures : 104
+number of pad mesures : 
+line 339 msr_pad_one_fx.ndim ==2 it must be ndim ==1 (because of the command uk = uk[:,None] line 76 - prepare.py)
+adjust the measurement (DIC and pad) line 326 msr_pad_one_fx = msr_pad_one_fx[range(0,n_msr_dic)]
+add line 341 np.take(array, indice = 0, axis = 1)
+line 443 : u_msr_noisy is replaced by u_msr
+line 459 : the same for f_msr
+line 712 : cut the measurement list
+line 714: add msr_pad_one_fx_abs_not_cut = np.abs(msr_pad_one_fx_not_cut)
+line 739: disable ax.legend
+
+
+healthy_skin_main.py
+the pad DIC time-dependent measurements have the same size as the domaine DIC but different from the pad measurements
+
+
+
+
+Remarks 
+
+* order of magnitude of displacement ??! (Keloid)
+* sym_pos when compute dm ???
+* Same computations don't give the same result?
+* printing instability
+* Computing Sentivity with respect to the time measurements, what about iterations ?
+* config_9 and 10 : results are switched
+* Healthy_skin_test is success but what about the real simulation
+* try normL2 for forces ___ doesn't work
+* pratically the problem is not optimization but PDE solver (PETSnes)
+* Stopping creteria is : abs(dm)  <  r_tol*abs(dm) + a_tol
+
+
+
+
+
+Config 1 :
+
+Gradient :
+5 / 25
+
+  m_initial	     : [1.350602e-01,  2.384993e-03,
+ 1.500479e-02,  3.390620e-02,
+  -4.010904e-09]
+  "norm(DJDm_old)"     : 1947.9859552592204
+  "norm(DJDm)"         : 4524.276800945037
+  "DJDm[dm]"           : -4524.27680095
+  "D2JDm2[dm]"         : -44176.5825764
+  "model param.,  m"   : [ 1.138012e-01  1.081066e-01  1.374460e-01  4.182914e-02 -1.630196e-01]
+  "model param.,  dm"  : [ 2.884275e-02  7.415008e-02  3.150621e-02 -6.696093e-02 -7.846660e-02]
+  "direction cosine"   : 1.0
+  "residual est., dm"  : -0.102413462905
+  "is cost convex"     : False : 
+  "is cost decreasing" : True
+  "is cost converging" : False
+  "cost" 		  : -19.05776594209911
+******************************************************************
+Config2:
+
+Newton :
+m_initial	     : [1.350602e-01,  2.384993e-03,
+ 1.500479e-02,  3.390620e-02,
+  -4.010904e-09]
+ 0 / 25
+   "norm(DJDm_old)"     : inf
+   "norm(DJDm)"         : 1697.8012384240953
+   "DJDm[dm]"           : -195.928884858
+   "D2JDm2[dm]"         : 1172.5074712
+   "model param.,  m"   : [ 1.350602e-01  2.384993e-03  1.500479e-02  3.390620e-02 -4.010904e-09]
+   "model param.,  dm"  : [ 1.132477e-02 -5.154929e-03 -1.650476e-02 -6.679177e-02 -4.130216e-03]
+   "direction cosine"   : 0.115401544318
+   "residual est., dm"  : 0.167102461751
+   "is cost convex"     : True
+   "is cost decreasing" : True
+******************************************************************
+
+Config 3:
+
+
+newton 
+m_initial 	     : [3.477603e-02,  1.059706e-03,
+  4.852972e-03,  9.893655e-03,
+ 6.094060e-07]
+ 0 / 25
+   "norm(DJDm_old)"     : inf
+   "norm(DJDm)"         : 1364.5437394700352
+   "DJDm[dm]"           : -544.753568754
+   "D2JDm2[dm]"         : 11563.2615785
+   "model param.,  m"   : [ 3.477603e-02  1.059706e-03  4.852972e-03  9.893655e-03  6.094060e-07]
+   "model param.,  dm"  : [-3.696338e-03 -5.275095e-04 -3.800695e-03 -1.248113e-02 -1.219909e-02]
+   "direction cosine"   : 0.399220305658
+   "residual est., dm"  : 0.0471107191561
+   "is cost convex"     : True
+   "is cost decreasing" : True
+   "is cost converging" : True
+   "the cost"}                  : 1.6149719549113921
+******************************************************************
+
+Config 4:
+
+Sensitiviy method : Direct
+solver method : newton
+m_initial : [3.477603e-02,  1.059706e-03,
+  4.852972e-03,  9.893655e-03,
+ 6.094060e-07]
+
+******************************************************************
+Config 5:
+
+Sensitiviy method : Direct
+solver method : Gradient
+m_initial : [3.477603e-02,  1.059706e-03,
+  4.852972e-03,  9.893655e-03,
+ 6.094060e-07]
+
+******************************************************************
+Config 6:
+
+Sensitiviy method : Direct
+solver method : newton
+m_initial : [3.477603e-02,  1.059706e-03,
+  4.852972e-03,  9.893655e-03,
+ 6.094060e-07]
+sym_pos = True
+
+********************************************************************
+Config 7:
+
+Sensitiviy method : Adjoint
+solver method : newton
+m_initial : [3.477603e-02,  1.059706e-03,
+  4.852972e-03,  9.893655e-03,
+ 6.094060e-07]
+sym_pos = True
+
+********************************************************************
+Config 8:
+
+Sensitiviy method : Adjoint
+solver method : newton
+m_initial : [10,  10,
+  10,  10,
+ 1e-07]
+sym_pos = True
+
+************************************************************************
+
+Config 9 _ SUCCESS:
+
+Sensitiviy method : Adjoint
+solver method : newton
+m_initial : [10,  10,
+  10,  10,
+ 1e-08]
+sym_pos = False
+
+20/25
+
+m_final : [ 5.653723e-04  6.382220e-04  1.282412e-03  7.335258e-04  1.307116e-08]
+
+************************************************************************
+
+Config 9 _ SUCCESS _ Remake:
+
+Sensitiviy method : Adjoint
+solver method : newton
+m_initial : [10,  10,
+  10,  10,
+ 1e-08]
+sym_pos = False
+
+20/25
+
+m_final : [ 6.382221e-04  5.653723e-04  7.335258e-04  1.282412e-03  1.307116e-08]
+************************************************************************
+
+Config 10 _ SUCCESS:
+
+Sensitiviy method : Adjoint
+solver method : newton
+sym_pos = False
+
+17/25
+m_initial : [1,  1,
+  1,  1, 1e-08]
+m_final : [ 6.382221e-04  5.653723e-04  7.335258e-04  1.282412e-03  1.334680e-08]
+
+**************************************************************************
+Config 11 _ SUCCESS:
+
+Sensitiviy method : Adjoint
+solver method : newton
+sym_pos = False
+
+20/25
+[10,  10,
+  10,  10,
+ 1e-04]
+m_final : [ 6.382221e-04  5.653723e-04  7.335258e-04  1.282412e-03  1.346593e-08]
+
+**************************************************************************
+Config 12 _ SUCCESS:   different from 11
+
+Sensitiviy method : Adjoint
+solver method : newton
+sym_pos = False
+
+20/25
+[5,  5,
+  5,  5,
+ 1e-08]
+m_final : [ 5.653723e-04  6.382221e-04  1.282412e-03  7.335258e-04  1.355567e-08]]
+
+*************************************************************************
+
+Config 13 _ SUCCESS: 
+
+Sensitiviy method : Adjoint
+solver method : newton
+sym_pos = False
+
+14/25
+[0.1,  0.1,
+  0.1,  0.1,
+ 1e-08]
+m_final : [ 5.653723e-04  6.382221e-04  1.282412e-03  7.335258e-04   1.364794e-08]
+
+*****************************************************************************
+Config 14 _ SUCCESS: 
+
+Sensitiviy method : Adjoint
+solver method : newton
+sym_pos = False
+
+15/25
+[1.500479e-02,  1.500479e-02,
+  1.500479e-02,  1.500479e-02,
+ -4e-09]
+m_final : [ 5.653723e-04  6.382221e-04  1.282412e-03  7.335258e-04   1.364794e-08]
+
+*****************************************************************************

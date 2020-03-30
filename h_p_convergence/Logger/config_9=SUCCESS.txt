@@ -1,0 +1,2377 @@
+fenics@4baf0f113e06:~/shared$ python3 keloid_skin_main.py
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+0 / 25
+  "norm(DJDm_old)"     : inf
+  "norm(DJDm)"          : 156132.52123478273
+
+  "DJDm[dm]"           : -0.0691850302822
+
+  "D2JDm2[dm]"         : 9.44716284323e-05
+
+  "model param.,  m"    : [ 1.000000e+01  1.000000e+01  1.000000e+01  1.000000e+01  1.000000e-08]
+
+  "model param.,  dm"   : [ 5.277573e+00 -4.861036e+00 -4.533304e+00 -5.288355e+00 -2.215533e-06]
+
+  "direction cosine"   : 4.43117357838e-07
+
+  "residual est., dm"  : 732.336590681
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5882133916895955
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+1 / 25
+  "norm(DJDm_old)"     : 156132.52123478273
+  "norm(DJDm)"          : 146755.1958587109
+
+  "DJDm[dm]"           : -0.0749517728297
+
+  "D2JDm2[dm]"         : 0.0014791212975
+
+  "model param.,  m"    : [ 1.527757e+01  5.138964e+00  5.466696e+00  4.711645e+00 -2.205533e-06]
+
+  "model param.,  dm"   : [-7.851066e+00  1.720283e+00  2.245244e+00  2.886981e+00 -2.254869e-06]
+
+  "direction cosine"   : 5.1072653606e-07
+
+  "residual est., dm"  : 50.6731753213
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5670838915531915
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+2 / 25
+  "norm(DJDm_old)"     : 146755.1958587109
+  "norm(DJDm)"          : 112286.20090396596
+
+  "DJDm[dm]"           : -0.0526396590655
+
+  "D2JDm2[dm]"         : 0.00117651278766
+
+  "model param.,  m"    : [ 7.426507e+00  6.859246e+00  7.711939e+00  7.598626e+00 -4.460403e-06]
+
+  "model param.,  dm"   : [ 2.091247e+00 -4.037839e+00 -3.957709e+00 -4.302666e+00 -1.735959e-06]
+
+  "direction cosine"   : 4.68799003276e-07
+
+  "residual est., dm"  : 44.7421053282
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.553218778159572
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+
+3 / 25
+  "norm(DJDm_old        : 90190.58942318086
+  "norm(DJDm)"
+  "DJDm[dm]"           : 0.0469784008521
+
+  "D2JDm2[dm]"         : -0.00412204591867
+
+  "model param.,  m"    : [ 9.517754e+00  2.821408e+00  3.754230e+00  3.295960e+00 -6.196362e-06]
+
+  "model param.,  dm"   : [-5.544306e+00 -1.149599e-01  3.506005e-01  3.039265e-02  1.447238e-06]
+
+  "direction cosine"   : -5.20879186537e-07
+
+  "residual est., dm"  : 11.3968649983
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : False
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5481066060956077
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of I        : 48439.7855975846
+
+  "DJDm[dm]"           : 0.0532064227097
+4 / 25
+  "D2JDm2[dm]"         : -0.0105358118834
+  "norm(DJDm)"
+  "model param.,  m"    : [ 3.973447e+00  2.706448e+00  4.104831e+00  3.326353e+00 -4.749124e-06]
+
+  "model param.,  dm"   : [-2.739256e+00 -1.187720e+00 -1.001147e+00 -1.685334e+00  1.961678e-06]
+
+  "direction cosine"   : -1.09840334868e-06
+
+  "residual est., dm"  : 5.05005435733
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : False
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5601289264619755
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+                        : 16392.754954387914
+5 / 25
+  "DJDm[dm]"           : -0.0663535021864
+  "norm(DJDm)"
+  "D2JDm2[dm]"         : 0.0104017936754
+
+  "model param.,  m"    : [ 1.234191e+00  1.518727e+00  3.103684e+00  1.641019e+00 -2.787446e-06]
+
+  "model param.,  dm"   : [-2.549145e-01 -7.445521e-01 -1.699878e+00 -7.279877e-01 -4.066227e-06]
+
+  "direction cosine"   : 4.04773342681e-06
+
+  "residual est., dm"  : 6.37904425494
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5755246149611213
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+
+6 / 25                  : 11474.547629684543
+  "norm(DJDm_old)"     : 16392.754954387914
+  "DJDm[dm]"           : 0.0766294562767
+
+  "D2JDm2[dm]"         : -0.0506392443152
+
+  "model param.,  m"    : [ 9.792765e-01  7.741751e-01  1.403806e+00  9.130314e-01 -6.853674e-06]
+
+  "model param.,  dm"   : [-8.010584e-01 -3.187650e-01 -4.266792e-01 -4.065662e-01  3.487587e-06]
+
+  "direction cosine"   : -6.67821152953e-06
+
+  "residual est., dm"  : 1.51324249232
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : False
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5689665005174145
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+                        : 3905.905027086204
+
+  "DJDm[dm]"           : -0.0725497903732
+  "norm(DJDm_old)"     : 11474.547629684543
+  "D2JDm2[dm]"         : 0.0395180697126
+
+  "model param.,  m"    : [ 1.782181e-01  4.554101e-01  9.771271e-01  5.064651e-01 -3.366087e-06]
+
+  "model param.,  dm"   : [-3.164715e-03 -2.161265e-01 -5.125764e-01 -2.305555e-01 -5.586043e-06]
+
+  "direction cosine"   : 1.85743866966e-05
+
+  "residual est., dm"  : 1.83586371755
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5758091560107232
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of I        : 2661.1067687548352
+
+  "DJDm[dm]"           : 0.0571183506548
+8 / 25
+  "D2JDm2[dm]"         : -0.0888437378857
+  "norm(DJDm)"
+  "model param.,  m"    : [ 1.750533e-01  2.392836e-01  4.645507e-01  2.759096e-01 -8.952130e-06]
+
+  "model param.,  dm"   : [-6.128842e-02 -1.263476e-01 -2.319195e-01 -1.464644e-01  3.308511e-06]
+
+  "direction cosine"   : -2.14641333919e-05
+
+  "residual est., dm"  : 0.642908009208
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : False
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5721534991302475
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of I        : 1379.5069772493582
+
+  "DJDm[dm]"           : 0.0326915829145
+9 / 25
+  "D2JDm2[dm]"         : -0.107299607224 52
+  "norm(DJDm)"
+  "model param.,  m"    : [ 1.137649e-01  1.129360e-01  2.326312e-01  1.294452e-01 -5.643619e-06]
+
+  "model param.,  dm"   : [-6.761644e-02 -5.269327e-02 -1.148620e-01 -6.000625e-02  1.843907e-06]
+
+  "direction cosine"   : -2.36980192588e-05
+
+  "residual est., dm"  : 0.304675699755
+
+  "is cost convex"     : False
+
+  "is cost decreasing" : False
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.573672882265392
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+10 / 25                 : 673.5946916475551
+  "norm(DJDm_old)"     : 1379.5069772493582
+  "DJDm[dm]"           : -0.0104707641607
+
+  "D2JDm2[dm]"         : 0.0656164915883
+
+  "model param.,  m"    : [ 4.614848e-02  6.024276e-02  1.177692e-01  6.943898e-02 -3.799712e-06]
+
+  "model param.,  dm"   : [-1.770298e-02 -3.158485e-02 -5.884497e-02 -3.659004e-02 -5.939427e-07]
+
+  "direction cosine"   : 1.55446061119e-05
+
+  "residual est., dm"  : 0.159575190737
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5732573850053657
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+11 / 25                 : 342.50574210537025
+  "norm(DJDm_old)"     : 673.5946916475551
+  "DJDm[dm]"           : -0.0203860982272
+
+  "D2JDm2[dm]"         : 0.267883011482
+
+  "model param.,  m"    : [ 2.844550e-02  2.865791e-02  5.892426e-02  3.284894e-02 -4.393654e-06]
+
+  "model param.,  dm"   : [-1.663047e-02 -1.346991e-02 -2.918852e-02 -1.534291e-02 -1.132564e-06]
+
+  "direction cosine"   : 5.95204568014e-05
+
+  "residual est., dm"  : 0.076100750527
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.573957668618623
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+12 / 25                 : 165.1537049994101
+  "norm(DJDm_old)"     : 342.50574210537025
+  "DJDm[dm]"           : -0.09584337594
+
+  "D2JDm2[dm]"         : 2.47192784642
+
+  "model param.,  m"    : [ 1.181503e-02  1.518800e-02  2.973574e-02  1.750603e-02 -5.526219e-06]
+
+  "model param.,  dm"   : [-4.656992e-03 -7.949473e-03 -1.485036e-02 -9.209856e-03 -5.544215e-06]
+
+  "direction cosine"   : 0.000580328342863
+
+  "residual est., dm"  : 0.0387727239203
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5733532208339718
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+13 / 25                 : 81.36758320510147
+  "norm(DJDm_old)"     : 165.1537049994101
+  "DJDm[dm]"           : -0.131495403181
+
+  "D2JDm2[dm]"         : 7.30341709681
+
+  "model param.,  m"    : [ 7.158036e-03  7.238527e-03  1.488538e-02  8.296175e-03 -1.107043e-05]
+
+  "model param.,  dm"   : [-4.180823e-03 -3.399357e-03 -7.382327e-03 -3.869754e-03 -7.451673e-06]
+
+  "direction cosine"   : 0.00161606622689
+
+  "residual est., dm"  : 0.0180046410383
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5739930705172076
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+14 / 25                 : 42.29940305847559
+  "norm(DJDm_old)"     : 81.36758320510147
+  "DJDm[dm]"           : -0.464273526827
+
+  "D2JDm2[dm]"         : 54.7812529889
+
+  "model param.,  m"    : [ 2.977212e-03  3.839170e-03  7.503051e-03  4.426421e-03 -1.852211e-05]
+
+  "model param.,  dm"   : [-1.140841e-03 -2.020233e-03 -3.741386e-03 -2.343390e-03 -2.801506e-05]
+
+  "direction cosine"   : 0.0109758883875
+
+  "residual est., dm"  : 0.00847504395199
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5733501242894374
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+15 / 25                 : 53.15411861625176
+  "norm(DJDm_old)"     : 42.29940305847559
+  "DJDm[dm]"           : -0.984609123553
+
+  "D2JDm2[dm]"         : 297.365234338
+
+  "model param.,  m"    : [ 1.836371e-03  1.818937e-03  3.761665e-03  2.083032e-03 -4.653717e-05]
+
+  "model param.,  dm"   : [-1.130225e-03 -8.261843e-04 -1.858426e-03 -9.358174e-04 -5.945412e-05]
+
+  "direction cosine"   : 0.0185236656949
+
+  "residual est., dm"  : 0.0033111104119
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : False
+
+  "the cost"}                   : 1.5741034000339522
+
+
+LOGGER: minimize_cost_forall - WARNING
+  Model cost diverged {num_diverged} time(s).
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+16 / 25
+  "norm(DJDm_old        : 146.0060116721216
+  "norm(DJDm)"
+  "DJDm[dm]"           : -6.96567530576
+
+  "D2JDm2[dm]"         : 7145.68735389
+
+  "model param.,  m"    : [ 7.061458e-04  9.927531e-04  1.903239e-03  1.147214e-03 -1.059913e-04]
+
+  "model param.,  dm"   : [-7.437932e-05 -3.896551e-04 -6.432392e-04 -4.577890e-04 -4.117771e-04]
+
+  "direction cosine"   : 0.0477081404114
+
+  "residual est., dm"  : 0.00097480829496
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : False
+
+  "the cost"}                   : 1.5732039195475724
+
+
+LOGGER: minimize_cost_forall - WARNING
+  Model cost diverged {num_diverged} time(s).
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+17 / 25
+  "norm(DJDm_old)"     : 146.0060116721216
+  "norm(DJDm)"          : 231.7815072641489
+
+  "DJDm[dm]"           : -20.2573271605
+
+  "D2JDm2[dm]"         : 136682.62397
+
+  "model param.,  m"    : [ 6.317665e-04  6.030980e-04  1.260000e-03  6.894252e-04 -5.177684e-04]
+
+  "model param.,  dm"   : [-6.748271e-05  3.211331e-05  1.186965e-05  4.085176e-05  1.207079e-04]
+
+  "direction cosine"   : 0.0873983753045
+
+  "residual est., dm"  : 0.000148207040311
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : False
+
+  "the cost"}                   : 1.5745474674175053
+
+
+LOGGER: minimize_cost_forall - WARNING
+  Model cost diverged {num_diverged} time(s).
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+18 / 25
+  "norm(DJDm_old)"     : 231.7815072641489
+  "norm(DJDm)"          : 8.708498150948552
+
+  "DJDm[dm]"           : -0.0420787295614
+
+  "D2JDm2[dm]"         : 106.165179295
+
+  "model param.,  m"    : [ 5.642837e-04  6.352113e-04  1.271870e-03  7.302770e-04 -3.970605e-04]
+
+  "model param.,  dm"   : [ 1.083804e-06  2.980728e-06  1.039177e-05  3.217898e-06  3.961895e-04]
+
+  "direction cosine"   : 0.00483191577147
+
+  "residual est., dm"  : 0.000396351514129
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5738923903240674
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+19 / 25
+  "norm(DJDm_old)"     : 8.708498150948552
+  "norm(DJDm)"          : 0.19969939032551692
+
+  "DJDm[dm]"           : -0.00293414551292
+
+  "D2JDm2[dm]"         : 3268.1629623
+
+  "model param.,  m"    : [ 5.653676e-04  6.381920e-04  1.282261e-03  7.334949e-04 -8.710154e-07]
+
+  "model param.,  dm"   : [ 4.717576e-09  3.002040e-08  1.501726e-07  3.089282e-08  8.840866e-07]
+
+  "direction cosine"   : 0.0146928115711
+
+  "residual est., dm"  : 8.9779657464e-07
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.57370867992742
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+
+
+*** Summary of Iteration
+
+
+20 / 25                 : 2.9273030116759752e-05
+  "norm(DJDm_old)"     : 0.19969939032551692
+  "DJDm[dm]"           : -7.03867664635e-07
+
+  "D2JDm2[dm]"         : 1437.97388353
+
+  "model param.,  m"    : [ 5.653723e-04  6.382220e-04  1.282412e-03  7.335258e-04  1.307116e-08]
+
+  "model param.,  dm"   : [-7.056426e-12  1.827113e-11  6.939812e-11  1.895500e-11  4.837740e-10]
+
+  "direction cosine"   : 0.0240449199084
+
+  "residual est., dm"  : 4.89485708118e-10
+
+  "is cost convex"     : True
+
+  "is cost decreasing" : True
+
+  "is cost converging" : True
+
+  "the cost"}                   : 1.5737085871079028
+
+
+Continue? (y/n)
+y
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+LOGGER: log - Level 25
+  Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+
+LOGGER: log - INFO
+  Compiling form ffc_form_fb84f97c4570812f0d420745521668a5c120340c
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1: Analyzing form(s)
+
+
+LOGGER: log - INFO
+  -----------------------------------
+
+
+LOGGER: log - DEBUG
+    Preprocessing form using 'uflacs' representation family.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+    Geometric dimension:       2
+  Number of cell subdomains: 11
+  Rank:                      1
+  Arguments:                 '(v_0)'
+  Number of coefficients:    1
+  Coefficients:              '[f_350]'
+  Unique elements:           'Vector<2 x CG1(?,?)>'
+  Unique sub elements:       'Vector<2 x CG1(?,?)>, CG1(?,?)'
+
+
+
+LOGGER: log - INFO
+    representation:    auto --> uflacs
+
+
+LOGGER: log - INFO
+    quadrature_rule:   auto --> default
+
+
+LOGGER: log - INFO
+    quadrature_degree: auto --> 0
+
+
+LOGGER: log - INFO
+    quadrature_degree: 0
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1 finished in 0.137608 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2: Computing intermediate representation
+
+
+LOGGER: log - INFO
+  -------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Computing representation of 0 elements
+
+
+LOGGER: log - INFO
+    Computing representation of 0 dofmaps
+
+
+LOGGER: log - INFO
+    Computing representation of 0 coordinate mappings
+
+
+LOGGER: log - INFO
+    Computing representation of integrals
+
+
+LOGGER: log - INFO
+    Computing uflacs representation
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+  Blocks of each mode:
+
+
+
+LOGGER: log - INFO
+    Computing representation of forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2 finished in 0.192984 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3: Optimizing intermediate representation
+
+
+LOGGER: log - INFO
+  --------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Optimizing uflacs representation
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3 finished in 0.0116105 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4: Generating code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+    Generating code for 0 finite_element(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 dofmap(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 coordinate_mapping(s)
+
+
+LOGGER: log - INFO
+    Generating code for integrals
+
+
+LOGGER: log - INFO
+    Generating code from ffc.uflacs representation
+
+
+LOGGER: log - INFO
+    Generating code for forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4 finished in 0.0645719 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4.1 finished in 6.91414e-06 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5: Formatting code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5 finished in 0.0099721 seconds.
+
+
+
+LOGGER: log - INFO
+  FFC finished in 0.434585 seconds.
+
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+LOGGER: log - Level 25
+  Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+
+LOGGER: log - INFO
+  Compiling form ffc_form_bc3bcbf7270ab6262d9022ca9504321d3f470a28
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1: Analyzing form(s)
+
+
+LOGGER: log - INFO
+  -----------------------------------
+
+
+LOGGER: log - DEBUG
+    Preprocessing form using 'uflacs' representation family.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+    Geometric dimension:       2
+  Number of cell subdomains: 11
+  Rank:                      1
+  Arguments:                 '(v_0)'
+  Number of coefficients:    1
+  Coefficients:              '[f_350]'
+  Unique elements:           'Vector<2 x CG1(?,?)>'
+  Unique sub elements:       'Vector<2 x CG1(?,?)>, CG1(?,?)'
+
+
+
+LOGGER: log - INFO
+    representation:    auto --> uflacs
+
+
+LOGGER: log - INFO
+    quadrature_rule:   auto --> default
+
+
+LOGGER: log - INFO
+    quadrature_degree: auto --> 0
+
+
+LOGGER: log - INFO
+    quadrature_degree: 0
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1 finished in 0.113334 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2: Computing intermediate representation
+
+
+LOGGER: log - INFO
+  -------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Computing representation of 0 elements
+
+
+LOGGER: log - INFO
+    Computing representation of 0 dofmaps
+
+
+LOGGER: log - INFO
+    Computing representation of 0 coordinate mappings
+
+
+LOGGER: log - INFO
+    Computing representation of integrals
+
+
+LOGGER: log - INFO
+    Computing uflacs representation
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+  Blocks of each mode:
+
+
+
+LOGGER: log - INFO
+    Computing representation of forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2 finished in 0.142828 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3: Optimizing intermediate representation
+
+
+LOGGER: log - INFO
+  --------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Optimizing uflacs representation
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3 finished in 0.00364518 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4: Generating code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+    Generating code for 0 finite_element(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 dofmap(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 coordinate_mapping(s)
+
+
+LOGGER: log - INFO
+    Generating code for integrals
+
+
+LOGGER: log - INFO
+    Generating code from ffc.uflacs representation
+
+
+LOGGER: log - INFO
+    Generating code for forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4 finished in 0.0386412 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4.1 finished in 5.00679e-06 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5: Formatting code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5 finished in 0.0075326 seconds.
+
+
+
+LOGGER: log - INFO
+  FFC finished in 0.31982 seconds.
+
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+LOGGER: log - Level 25
+  Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+
+LOGGER: log - INFO
+  Compiling form ffc_form_0250c4e05d6b9d3d2303521dd71a58f241802e04
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1: Analyzing form(s)
+
+
+LOGGER: log - INFO
+  -----------------------------------
+
+
+LOGGER: log - DEBUG
+    Preprocessing form using 'uflacs' representation family.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+    Geometric dimension:       2
+  Number of cell subdomains: 31
+  Rank:                      1
+  Arguments:                 '(v_0)'
+  Number of coefficients:    1
+  Coefficients:              '[f_350]'
+  Unique elements:           'Vector<2 x CG1(?,?)>'
+  Unique sub elements:       'Vector<2 x CG1(?,?)>, CG1(?,?)'
+
+
+
+LOGGER: log - INFO
+    representation:    auto --> uflacs
+
+
+LOGGER: log - INFO
+    quadrature_rule:   auto --> default
+
+
+LOGGER: log - INFO
+    quadrature_degree: auto --> 0
+
+
+LOGGER: log - INFO
+    quadrature_degree: 0
+
+
+LOGGER: log - INFO
+    representation:    auto --> uflacs
+
+
+LOGGER: log - INFO
+    quadrature_rule:   auto --> default
+
+
+LOGGER: log - INFO
+    quadrature_degree: auto --> 0
+
+
+LOGGER: log - INFO
+    quadrature_degree: 0
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1 finished in 0.151929 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2: Computing intermediate representation
+
+
+LOGGER: log - INFO
+  -------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Computing representation of 0 elements
+
+
+LOGGER: log - INFO
+    Computing representation of 0 dofmaps
+
+
+LOGGER: log - INFO
+    Computing representation of 0 coordinate mappings
+
+
+LOGGER: log - INFO
+    Computing representation of integrals
+
+
+LOGGER: log - INFO
+    Computing uflacs representation
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+  Blocks of each mode:
+
+
+
+LOGGER: log - INFO
+    Computing uflacs representation
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+  Blocks of each mode:
+
+
+
+LOGGER: log - INFO
+    Computing representation of forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2 finished in 0.274981 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3: Optimizing intermediate representation
+
+
+LOGGER: log - INFO
+  --------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Optimizing uflacs representation
+
+
+LOGGER: log - INFO
+    Optimizing uflacs representation
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3 finished in 0.012095 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4: Generating code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+    Generating code for 0 finite_element(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 dofmap(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 coordinate_mapping(s)
+
+
+LOGGER: log - INFO
+    Generating code for integrals
+
+
+LOGGER: log - INFO
+    Generating code from ffc.uflacs representation
+
+
+LOGGER: log - INFO
+    Generating code from ffc.uflacs representation
+
+
+LOGGER: log - INFO
+    Generating code for forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4 finished in 0.0590718 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4.1 finished in 2.19345e-05 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5: Formatting code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5 finished in 0.0125744 seconds.
+
+
+
+LOGGER: log - INFO
+  FFC finished in 0.524033 seconds.
+
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+LOGGER: log - Level 25
+  Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+
+LOGGER: log - INFO
+  Compiling form ffc_form_e39dc5a928d61ce17109088d2f3bee93a3d6ec9a
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1: Analyzing form(s)
+
+
+LOGGER: log - INFO
+  -----------------------------------
+
+
+LOGGER: log - DEBUG
+    Preprocessing form using 'uflacs' representation family.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+    Geometric dimension:       2
+  Number of cell subdomains: 31
+  Rank:                      1
+  Arguments:                 '(v_0)'
+  Number of coefficients:    1
+  Coefficients:              '[f_350]'
+  Unique elements:           'Vector<2 x CG1(?,?)>'
+  Unique sub elements:       'Vector<2 x CG1(?,?)>, CG1(?,?)'
+
+
+
+LOGGER: log - INFO
+    representation:    auto --> uflacs
+
+
+LOGGER: log - INFO
+    quadrature_rule:   auto --> default
+
+
+LOGGER: log - INFO
+    quadrature_degree: auto --> 0
+
+
+LOGGER: log - INFO
+    quadrature_degree: 0
+
+
+LOGGER: log - INFO
+    representation:    auto --> uflacs
+
+
+LOGGER: log - INFO
+    quadrature_rule:   auto --> default
+
+
+LOGGER: log - INFO
+    quadrature_degree: auto --> 0
+
+
+LOGGER: log - INFO
+    quadrature_degree: 0
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1 finished in 0.133408 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2: Computing intermediate representation
+
+
+LOGGER: log - INFO
+  -------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Computing representation of 0 elements
+
+
+LOGGER: log - INFO
+    Computing representation of 0 dofmaps
+
+
+LOGGER: log - INFO
+    Computing representation of 0 coordinate mappings
+
+
+LOGGER: log - INFO
+    Computing representation of integrals
+
+
+LOGGER: log - INFO
+    Computing uflacs representation
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+  Blocks of each mode:
+
+
+
+LOGGER: log - INFO
+    Computing uflacs representation
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+    Reusing element from cache
+
+
+LOGGER: log - DEBUG
+  Blocks of each mode:
+
+
+
+LOGGER: log - INFO
+    Computing representation of forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2 finished in 0.267968 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3: Optimizing intermediate representation
+
+
+LOGGER: log - INFO
+  --------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Optimizing uflacs representation
+
+
+LOGGER: log - INFO
+    Optimizing uflacs representation
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3 finished in 0.00993395 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4: Generating code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+    Generating code for 0 finite_element(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 dofmap(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 coordinate_mapping(s)
+
+
+LOGGER: log - INFO
+    Generating code for integrals
+
+
+LOGGER: log - INFO
+    Generating code from ffc.uflacs representation
+
+
+LOGGER: log - INFO
+    Generating code from ffc.uflacs representation
+
+
+LOGGER: log - INFO
+    Generating code for forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4 finished in 0.0650451 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4.1 finished in 4.76837e-06 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5: Formatting code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5 finished in 0.0150404 seconds.
+
+
+
+LOGGER: log - INFO
+  FFC finished in 0.51188 seconds.
+
+Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+LOGGER: log - Level 25
+  Calling FFC just-in-time (JIT) compiler, this may take some time.
+
+
+LOGGER: log - INFO
+  Compiling form ffc_form_cceca817aab2e7bff2db06cfa9ff8069f1d5faac
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1: Analyzing form(s)
+
+
+LOGGER: log - INFO
+  -----------------------------------
+
+
+LOGGER: log - DEBUG
+    Preprocessing form using 'uflacs' representation family.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+  Adjusting missing element cell to triangle.
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+    Geometric dimension:    2
+  Rank:                   1
+  Arguments:              '(v_0)'
+  Number of coefficients: 0
+  Coefficients:           '[]'
+  Unique elements:        'Vector<2 x CG1(?,?)>'
+  Unique sub elements:    'Vector<2 x CG1(?,?)>, CG1(?,?)'
+
+
+
+LOGGER: log - INFO
+    Quadrature rule must be equal within each sub domain, using canonical rule.
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 1 finished in 0.0876751 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2: Computing intermediate representation
+
+
+LOGGER: log - INFO
+  -------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Computing representation of 0 elements
+
+
+LOGGER: log - INFO
+    Computing representation of 0 dofmaps
+
+
+LOGGER: log - INFO
+    Computing representation of 0 coordinate mappings
+
+
+LOGGER: log - INFO
+    Computing representation of integrals
+
+
+LOGGER: log - INFO
+    Computing representation of forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 2 finished in 0.0125165 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3: Optimizing intermediate representation
+
+
+LOGGER: log - INFO
+  --------------------------------------------------------
+
+
+LOGGER: log - INFO
+    Skipping optimizations, add -O or attach {'optimize': True} metadata to integrals
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 3 finished in 0.0139797 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4: Generating code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+    Generating code for 0 finite_element(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 dofmap(s)
+
+
+LOGGER: log - INFO
+    Generating code for 0 coordinate_mapping(s)
+
+
+LOGGER: log - INFO
+    Generating code for integrals
+
+
+LOGGER: log - INFO
+    Generating code for forms
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4 finished in 0.0241117 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 4.1 finished in 1.81198e-05 seconds.
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5: Formatting code
+
+
+LOGGER: log - INFO
+  ---------------------------------
+
+
+LOGGER: log - INFO
+
+
+
+LOGGER: log - INFO
+  Compiler stage 5 finished in 0.0115728 seconds.
+
+
+
+LOGGER: log - INFO
+  FFC finished in 0.167665 seconds.
+
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+Solving nonlinear variational problem.
+Solving linear variational problem.
+To view figure, visit http://127.0.0.1:8000
+Press Ctrl+C to stop WebAgg server

@@ -1,0 +1,810 @@
+fenics@68de1e3f1e3c:~/shared$ python3 keloid_skin_main.py
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 0 / 25
+   "norm(DJDm_old)"     : inf
+   "norm(DJDm)"         : 29101.462124485428
+   "DJDm[dm]"           : 134.847892873
+   "D2JDm2[dm]"         : -464.481035833
+   "model param.,  m"   : [ 3.477603e-02  1.059706e-03  4.852972e-03  9.893655e-03  6.094060e-07]
+   "model param.,  dm"  : [ 2.138126e-03 -3.965259e-05  1.993424e-04  9.167948e-04  1.809777e-02]
+   "direction cosine"   : -0.00463371538845
+   "residual est., dm"  : 0.290319480172
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True
+   "the cost"}                  : 3.395283681703225
+
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 1 / 25
+   "norm(DJDm_old)"     : 29101.462124485428
+   "norm(DJDm)"         : 27322.902658090432
+   "DJDm[dm]"           : 126.671560129
+   "D2JDm2[dm]"         : -559.959014433
+   "model param.,  m"   : [ 3.691416e-02  1.020053e-03  5.052314e-03  1.081045e-02  1.809838e-02]
+   "model param.,  dm"  : [ 3.338608e-03 -3.174510e-05  3.148550e-04  1.425842e-03  2.109811e-02]
+   "direction cosine"   : -0.004: 3.4589427413341047
+   "residual est., dm"  : 0.226215770911
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 2 / 25
+   "norm(DJDm_ol        : 24858.14913497174
+   "DJDm[dm]"           : 114.294247665
+   "D2JDm2[dm]"         : -745.221657837
+   "model param.,  m"   : [ 4.025276e-02  9.883083e-04  5.367169e-03  1.223629e-02  3.919649e-02]
+   "model param.,  dm"  : [ 7.090134e-03  3.750930e-06  6.824011e-04  2.997859e-03  2.782655e-02]
+   "direction cosine"   : -0.00459785831378
+   "residual est., dm"  : 0.153369465935
+   "is cost convex"     : False
+   "is cost decreasing" : False : 3.5244829157689415
+   "is cost converging" : True
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 3 / 25                 : 20653.174331084392
+   "DJDm[dm]"           : 76.8088082987 174
+   "D2JDm2[dm]"         : -1122.37710019
+   "model param.,  m"   : [ 4.734290e-02  9.920592e-04  6.049570e-03  1.523415e-02  6.702304e-02]
+   "model param.,  dm"  : [ 2.670741e-02  3.476410e-04  2.664845e-03  1.099262e-02  3.015674e-02]
+   "direction cosine"   : -0.00371898319684
+   "residual est., dm"  : 0.0684340479557
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True  : 3.5906522454284246
+   "the cost"}
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+
+ 4 / 25
+   "norm(DJDm_ol        : 11947.493194128852
+   "DJDm[dm]"           : -23.2733033091
+   "D2JDm2[dm]"         : 219.529322627
+   "model param.,  m"   : [ 7.405031e-02  1.339700e-03  8.714415e-03  2.622677e-02  9.717978e-02]
+   "model param.,  dm"  : [ 4.19: 3.5943863315286513 3  4.441984e-03  1.588635e-02 -4.351800e-02]
+   "direction cosine"   : 0.00194796539583
+Solving nonlinear variational problem.68
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+
+ 5 / 25
+   "norm(DJDm_old)"     : 11947.493194128852
+   "norm(DJDm)"         : 7951.780569635854
+   "DJDm[dm]"           : -5.01278818862
+   "D2JDm2[dm]"         : 37.9725010124
+   "model param.,  m"   : [ 1.159551e-01  2.479566e-03  1.315640e-02  4.211312e-02  5.366179e-02]
+   "model param.,  dm"  : [ 5.855379e-02  1.403767e-03  6.443902e-03  2.176491e-02 -2.497459e-02]
+   "direction cosine"   : 0.000630398203864
+   "residual est., dm"  : 0.132011009414
+   "is cost convex"     : True
+   "is cost decreasing" : True
+   "is cost converging" : True
+   "the cost"}                  : 3.5480884424362222
+
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+                        : 5535.666502592462
+   "DJDm[dm]"           : -0.952246938906
+   "D2JDm2[dm]"         : 5.06461279079 854
+   "model param.,  m"   : [ 1.745089e-01  3.883332e-03  1.960030e-02  6.387802e-02  2.868719e-02]
+   "model param.,  dm"  : [ 8.724206e-02  2.011851e-03  9.681336e-03  3.228447e-02 -1.370223e-02]
+   "direction cosine"   : 0.0001: 3.536411992952077
+   "residual est., dm"  : 0.188019692372
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+
+ 7 / 25
+   "norm(DJDm_ol        : 3842.1511112622347
+   "DJDm[dm]"           : -0.166488630305
+   "D2JDm2[dm]"         : [ 2.617510e-01  5.895183e-03  2.928164e-02  9.616249e-02  1.498496e-02]
+   "model param.,  dm"  : [ 1.308044e-01  2.981342e-03  1.455164e-02  4.833344e-02 -7.268085e-03]
+   "direction cosine"   : 4.3332: 3.5294962961456084
+   "residual est., dm"  : 0.280227462641
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+
+ 8 / 25
+   "norm(DJDm_ol        : 2646.0790422710643
+   "DJDm[dm]"           : -0.0278931097329
+   "D2JDm2[dm]"         : 0.0663653661058
+   "model param.,  m"   : [ 1.962072e-01  4.455227e-03  2.184502e-02  7.246430e-02 -3.773741e-03]
+   "direction cosine"   : 1.0541: 3.5235221417626117
+   "residual est., dm"  : 0.420296178107
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+
+ 9 / 25
+   "norm(DJDm_old)"     : 2646.0790422710643
+   "norm(DJDm)"         : 1809.127312754944
+   "DJDm[dm]"           : -0.00448425347996
+   "D2JDm2[dm]"         : 0.00711038255286
+   "model param.,  m"   : [ 5.887625e-01  1.333175e-02  6.567830e-02  2.169602e-01  3.943138e-03]
+   "model param.,  dm"  : [ 2.94: 3.518184912970592 03  3.277692e-02  1.086802e-01 -1.937472e-03]
+   "direction cosine"   : 2.47868320175e-06
+Solving nonlinear variational problem.28
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+
+ 10 / 25
+   "norm(DJDm_ol        : 1229.58568976793
+   "DJDm[dm]"           : -0.000674978132957
+   "D2JDm2[dm]"         : 0.000713345093986
+   "model param.,  m"   : [ 8.830769e-01  2.000563e-02  9.845521e-02  3.256404e-01  2.005666e-03]
+   "model param.,  dm"  : [ 4.414737e-01  1.000537e-02  4.917047e-02  1.630129e-01 -9.885207e-04]
+   "direction cosine"   : 5.48947615911e-07
+   "residual est., dm"  : 0.946215427354
+   "is cost convex"     : True
+   "is cost decreasing" : True  : 3.5136131360351848
+   "is cost converging" : True
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+                        : 831.8384013997501
+   "DJDm[dm]"           : -8.80684566367e-05
+   "D2JDm2[dm]"         : 6.20410941491e-05
+   "model param.,  m"   : [ 1.324551e+00  3.001100e-02  1.476257e-01  4.886534e-01  1.017146e-03]
+   "model param.,  dm"  : [ 6.622115e-01  1.500444e-02  7.375860e-02  2.445162e-01 -5.024172e-04]
+   "direction cosine"   : 1.05872073817e-07
+   "residual est., dm"  : 1.41951810884
+   "is cost convex"     : True  : 3.5098491849046813
+   "is cost decreasing" : True
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+
+*** Summary of Iteration
+                        : 560.761352611552
+   "DJDm[dm]"           : -7.04160563581e-06
+   "D2JDm2[dm]"         : 3.30677091263e-06
+   "model param.,  m"   : [ 1.986762e+00  4.501544e-02  2.213843e-01  7.331695e-01  5.147286e-04]
+   "model param.,  dm"  : [ 9.933175e-01  2.250411e-02  1.106396e-01  3.667731e-01 -2.546806e-04]
+   "direction cosine"   : 1.2557: 3.506835718031888
+   "residual est., dm"  : 2.12945070035
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 13 / 25
+   "norm(DJDm_old)"     : 560.761352611552
+   "norm(DJDm)"         : 377.0019413919725
+   "DJDm[dm]"           : 1.14437184407e-06
+   "D2JDm2[dm]"         : -3.58250446709e-07
+   "model param.,  m"   : [ 2.980080e+00  6.751955e-02  3.320239e-01  1.099943e+00  2.600479e-04]
+   "model param.,  dm"  : [ 1.489976e+00  3.375432e-02  1.659605e-01  5.501594e-01 -1.288452e-04]
+   "direction cosine"   : -3.0354534511e-09
+   "residual est., dm"  : 3.19433473031
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True
+   "the cost"}                  : 3.504467823229842
+
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 14 / 25
+   "norm(DJDm_ol        : 252.9403519922412
+   "DJDm[dm]"           : 8.85366876913e-07
+   "D2JDm2[dm]"         : -1.84772849411e-07
+   "model param.,  m"   : [ 4.470056e+00  1.012739e-01  4.979845e-01  1.650102e+00  1.312028e-04]
+   "model param.,  dm"  : [ 2.234964e+00  5.063011e-02  2.489415e-01  8.252392e-01 -6.508138e-05]
+   "direction cosine"   : -3.50029906237e-09
+   "residual est., dm"  : 4.791650287
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True  : 3.502630367988839
+   "the cost"}
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 15 / 25
+   "norm(DJDm_old)"     : 252.9403519922412
+   "norm(DJDm)"         : 169.4405273534822
+   "DJDm[dm]"           : 3.54503773798e-07
+   "D2JDm2[dm]"         : -4.93214646201e-08
+   "model param.,  m"   : [ 6.705020e+00  1.519040e-01  7.469260e-01  2.475341e+00  6.612139e-05]
+   "model param.,  dm"  : [ 3.352446e+00  7.594414e-02  3.734127e-01  1.237859e+00 -3.283073e-05]
+   "direction cosine"   : -2.0922017851e-09
+   "residual est., dm"  : 7.18761651805
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True
+   "the cost"}                  : 3.5012166244668004
+
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 16 / 25
+   "norm(DJDm_ol        : 113.37180288742911
+   "DJDm[dm]"           : 1.20561965393e-07
+   "D2JDm2[dm]"         : -1.1182238632e-08
+   "model param.,  m"   : [ 1.005747e+01  2.278481e-01  1.120339e+00  3.713200e+00  3.329066e-05]
+   "model param.,  dm"  : [ 5.028669e+00  1.139155e-01  5.601194e-01  1.856789e+00 -1.654348e-05]
+   "direction cosine"   : -1.06342108287e-09
+   "residual est., dm"  : 10.7815589849
+   "is cost convex"     : False : 3.5001352998214594
+   "is cost decreasing" : False
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 17 / 25
+   "norm(DJDm_old)"     : 113.37180288742911
+   "norm(DJDm)"         : 75.78893881161163
+   "DJDm[dm]"           : 3.83330514419e-08
+   "D2JDm2[dm]"         : -2.37026562853e-09
+   "model param.,  m"   : [ 1.508614e+01  3.417636e-01  1.680458e+00  5.569989e+00  1.674718e-05]
+   "model param.,  dm"  : [ 7.54: 3.4993116943027918 1  8.401794e-01  2.785183e+00 -8.328434e-06]
+   "direction cosine"   : -5.0578688715e-10
+Solving nonlinear variational problem.6
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 18 / 25
+   "norm(DJDm_ol        : 50.63070373479547
+   "DJDm[dm]"           : 1.17966616965e-08
+   "D2JDm2[dm]"         : -4.86283081817e-10
+   "model param.,  m"   : [ 2.262914e+01  5.126362e-01  2.520638e+00  8.355172e+00  8.418750e-06]
+   "model param.,  dm"  : [ 1.131451e+01  2.563085e-01  1.260269e+00  4.177775e+00 -4.189341e-06]
+   "direction cosine"   : -2.32994227343e-10
+   "residual est., dm"  : 24.2588363396
+   "is cost convex"     : False
+   "is cost decreasing" : False : 3.4986862914229255
+   "is cost converging" : True
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 19 / 25
+   "norm(DJDm_ol        : 33.80655770936876
+   "DJDm[dm]"           : 3.56883133894e-09
+   "D2JDm2[dm]"         : -9.80761954746e-11
+   "model param.,  m"   : [ 3.394364e+01  7.689446e-01  3.780907e+00  1.253295e+01  4.229409e-06]
+   "model param.,  dm"  : [ 1.697176e+01  3.844624e-01  1.890404e+00  6.266663e+00 -2.105812e-06]
+   "direction cosine"   : -1.05566244562e-10
+   "residual est., dm"  : 36.388: 3.4982124653676023
+   "is cost convex"     : False
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+                        : 22.564250613006006
+   "DJDm[dm]"           : 1.06974933187e-09
+   "D2JDm2[dm]"         : -1.95987337765e-11
+   "model param.,  m"   : [ 5.091540e+01  1.153407e+00  5.671311e+00  1.879961e+01  2.123597e-06]
+   "model param.,  dm"  : [ 2.545764e+01  5.766933e-01  2.835606e+00  9.399995e+00 -1.057850e-06]
+   "direction cosine"   : -4.74090343269e-11
+   "residual est., dm"  : 54.5825737556
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True  : 3.4978540944474488
+   "the cost"}
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 21 / 25
+   "norm(DJDm_old)"     : 22.564250613006006
+   "norm(DJDm)"         : 15.05618022545368
+   "DJDm[dm]"           : 3.19026660876e-10
+   "D2JDm2[dm]"         : -3.89652600454e-12
+   "model param.,  m"   : [ 7.637304e+01  1.730100e+00  8.506917e+00  2.819961e+01  1.065747e-06]
+   "model param.,  dm"  : [ 3.818646e+01  8.650398e-01  4.253409e+00  1.409999e+01 -5.311200e-07]
+   "direction cosine"   : -2.11890835589e-11
+   "residual est., dm"  : 81.874639231
+   "is cost convex"     : False
+   "is cost decreasing" : False
+   "is cost converging" : True  : 3.4975834067514433
+   "the cost"}
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 22 / 25
+   "norm(DJDm_ol        : 10.044159184368336
+   "DJDm[dm]"           : 9.48725565691e-11
+   "D2JDm2[dm]"         : [ 1.145595e+02  2.595140e+00  1.276033e+01  4.229960e+01  5.346271e-07]
+   "model param.,  dm"  : [ 5.727968e+01  1.297560e+00  6.380114e+00  2.114999e+01 -2.665346e-07]
+   "direction cosine"   : -9.445: 3.497379164054971
+   "residual est., dm"  : 122.809975517
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 23 / 25
+   "norm(DJDm_old)"     : 10.044159184368336
+   "norm(DJDm)"         : 6.699473281929866
+   "DJDm[dm]"           : 2.81674260899e-11
+   "D2JDm2[dm]"         : -1.52899381123e-13
+   "model param.,  m"   : [ 1.718392e+02  3.892700e+00  1.914044e+01  6.344959e+01  2.680925e-07]
+   "model param.,  dm"  : [ 8.591953e+01  1.946339e+00  9.570171e+00  3.172498e+01 -1.337002e-07]
+   "direction cosine"   : -4.20442397553e-12
+   "residual est., dm"  : 184.221975805
+   "is cost convex"     : False : 3.4972251872912574
+   "is cost decreasing" : False
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  `D2JDm2[dm]` is not positive, i.e. model cost is not convex in direction of `dm`. (Could be okey for a saddle-point pr
+oblem.)
+
+
+
+*** Summary of Iteration
+
+ 24 / 25
+   "norm(DJDm_old)"     : 6.699473281929866
+   "norm(DJDm)"         : 4.468005416527485
+   "DJDm[dm]"           : 8.35627067687e-12
+   "D2JDm2[dm]"         : -3.02419103135e-14
+   "model param.,  m"   : [ 2.577587e+02  5.839039e+00  2.871061e+01  9.517457e+01  1.343923e-07]
+   "model param.,  dm"  : [ 1.288793e+02  2.919509e+00  1.435526e+01  4.758747e+01 -6.704239e-08]
+   "direction cosine"   : -1.87024631751e-12
+   "residual est., dm"  : 276.314247025
+   "is cost convex"     : False
+   "is cost decreasing" : False : 3.4971091865710764
+   "is cost converging" : True
+   "the cost"}
+LOGGER: minimize_cost_forall - WARNING
+  Inverse solver failed to converge after {max_iterations+1} iterations.
+
+Traceback (most recent call last):
+  File "keloid_skin_main.py", line 605, in <module>
+    sensitivity_method='default', approximate_D2JDm2='default')
+  File "/home/fenics/shared/invsolve/invsolve.py", line 844, in minimize_cost_forall
+    raise RuntimeError('Inverse solver did not converge.')
+RuntimeError: Inverse solver did not converge.
+fenics@68de1e3f1e3c:~/shared$ Config 3:
+bash: Config: command not found
+fenics@68de1e3f1e3c:~/shared$
+fenics@68de1e3f1e3c:~/shared$
+fenics@68de1e3f1e3c:~/shared$ newton
+bash: newton: command not found
+fenics@68de1e3f1e3c:~/shared$ m_initial      : [3.477603e-02,  1.059706e-03,
+bash: m_initial: command not found
+fenics@68de1e3f1e3c:~/shared$   4.852972e-03,  9.893655e-03,
+bash: 4.852972e-03,: command not found
+fenics@68de1e3f1e3c:~/shared$  6.094060e-07]
+bash: 6.094060e-07]: command not found
+fenics@68de1e3f1e3c:~/shared$  0 / 25
+bash: 0: command not found
+fenics@68de1e3f1e3c:~/shared$    "norm(DJDm_old)"     : inf
+bash: norm(DJDm_old): command not found
+fenics@68de1e3f1e3c:~/shared$    "norm(DJDm)"         : 1364.5437394700352
+bash: norm(DJDm): command not found
+fenics@68de1e3f1e3c:~/shared$    "DJDm[dm]"           : -544.753568754
+bash: DJDm[dm]: command not found
+fenics@68de1e3f1e3c:~/shared$    "D2JDm2[dm]"         : 11563.2615785
+bash: D2JDm2[dm]: command not found
+fenics@68de1e3f1e3c:~/shared$    "model param.,  m"   : [ 3.477603e-02  1.059706e-03  4.852972e-03  9.893655e-03  6.0940
+60e-07]
+bash: model param.,  m: command not found
+fenics@68de1e3f1e3c:~/shared$    "model param.,  dm"  : [-3.696338e-03 -5.275095e-04 -3.800695e-03 -1.248113e-02 -1.2199
+09e-02]
+bash: model param.,  dm: command not found
+fenics@68de1e3f1e3c:~/shared$    "direction cosine"   : 0.399220305658
+bash: direction cosine: command not found
+fenics@68de1e3f1e3c:~/shared$    "residual est., dm"  : 0.0471107191561
+bash: residual est., dm: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost convex"     : True
+bash: is cost convex: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost decreasing" : True
+bash: is cost decreasing: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost converging" : True
+bash: is cost converging: command not found
+bash: the cost}: command not foundthe cost"}                  : 1.6149719549113921Config 3:
+fenics@68de1e3f1e3c:~/shared$
+fenics@68de1e3f1e3c:~/shared$
+fenics@68de1e3f1e3c:~/shared$ newton
+,  1.059706e-03,
+  4.852972e-03,  9.893bash: newton: command not found
+fenics@68de1e3f1e3c:~/shared$ m_initial      : [3.477603e-02,  1.059706e-03,
+bash: m_initial: command not found
+2  1.059706e-03  4.852972e-03  9.8936fenics@68de1e3f1e3c:~/shared$   4.852972e-03,  9.893655e-03,
+bash: 4.852972e-03,: command not found
+55e-03  6.094060e-07]
+   "model param.,  dm"  : fenics@68de1e3f1e3c:~/shared$  6.094060e-07]
+bash: 6.094060e-07]: command not found
+[-3.696338e-03 -5.275095e-04 -3.80069fenics@68de1e3f1e3c:~/shared$  0 / 25
+bash: 0: command not found
+fenics@68de1e3f1e3c:~/shared$    "norm(DJDm_old)"     : inf
+bash: norm(DJDm_old): command not found
+fenics@68de1e3f1e3c:~/shared$    "norm(DJDm)"         : 1364.5437394700352
+bash: norm(DJDm): command not found
+fenics@68de1e3f1e3c:~/shared$    "DJDm[dm]"           : -544.753568754
+bash: DJDm[dm]: command not found
+fenics@68de1e3f1e3c:~/shared$    "D2JDm2[dm]"         : 11563.2615785
+ing" : True
+   "the cost"}                  : 1.614971bash: D2JDm2[dm]: command not found
+fenics@68de1e3f1e3c:~/shared$    "model param.,  m"   : [ 3.477603e-02  1.059706e-03  4.852972e-03  9.893655e-03  6.0940
+60e-07]
+bash: model param.,  m: command not found
+fenics@68de1e3f1e3c:~/shared$    "model param.,  dm"  : [-3.696338e-03 -5.275095e-04 -3.800695e-03 -1.248113e-02 -1.2199
+09e-02]
+bash: model param.,  dm: command not found
+fenics@68de1e3f1e3c:~/shared$    "direction cosine"   : 0.399220305658
+bash: direction cosine: command not found
+fenics@68de1e3f1e3c:~/shared$    "residual est., dm"  : 0.0471107191561
+bash: residual est., dm: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost convex"     : True
+bash: is cost convex: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost decreasing" : True
+bash: is cost decreasing: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost converging" : True
+bash: is cost converging: command not found
+fenics@68de1e3f1e3c:~/shared$    "the cost"}                  : 1.6149719549113921Config 3:
+bash: the cost}: command not found
+fenics@68de1e3f1e3c:~/shared$
+fenics@68de1e3f1e3c:~/shared$
+fenics@68de1e3f1e3c:~/shared$ newton
+bash: newton: command not found
+fenics@68de1e3f1e3c:~/shared$ m_initial      : [3.477603e-02,  1.059706e-03,
+bash: m_initial: command not found
+fenics@68de1e3f1e3c:~/shared$   4.852972e-03,  9.893655e-03,
+bash: 4.852972e-03,: command not found
+fenics@68de1e3f1e3c:~/shared$  6.094060e-07]
+bash: 6.094060e-07]: command not found
+fenics@68de1e3f1e3c:~/shared$  0 / 25
+bash: 0: command not found
+fenics@68de1e3f1e3c:~/shared$    "norm(DJDm_old)"     : inf
+bash: norm(DJDm_old): command not found
+5e-03 -1.248113e-02 -1.219909e-02]
+   "fenics@68de1e3f1e3c:~/shared$    "norm(DJDm)"         : 1364.5437394700352
+bash: norm(DJDm): command not found
+fenics@68de1e3f1e3c:~/shared$    "DJDm[dm]"           : -544.753568754
+bash: DJDm[dm]: command not found
+fenics@68de1e3f1e3c:~/shared$    "D2JDm2[dm]"         : 11563.2615785
+ing" : True
+   "the cost"}                  : 1.614971bash: D2JDm2[dm]: command not found
+fenics@68de1e3f1e3c:~/shared$    "model param.,  m"   : [ 3.477603e-02  1.059706e-03  4.852972e-03  9.893655e-03  6.0940
+60e-07]
+bash: model param.,  m: command not found
+fenics@68de1e3f1e3c:~/shared$    "model param.,  dm"  : [-3.696338e-03 -5.275095e-04 -3.800695e-03 -1.248113e-02 -1.2199
+09e-02]
+bash: model param.,  dm: command not found
+fenics@68de1e3f1e3c:~/shared$    "direction cosine"   : 0.399220305658
+bash: direction cosine: command not found
+fenics@68de1e3f1e3c:~/shared$    "residual est., dm"  : 0.0471107191561
+bash: residual est., dm: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost convex"     : True
+bash: is cost convex: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost decreasing" : True
+bash: is cost decreasing: command not found
+fenics@68de1e3f1e3c:~/shared$    "is cost converging" : True
+bash: is cost converging: command not found
+fenics@68de1e3f1e3c:~/shared$    "the cost"}                  : 1.6149719549113921

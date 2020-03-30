@@ -1,0 +1,182 @@
+fenics@4baf0f113e06:~/shared$ python3 keloid_skin_main.py
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+ 0 / 25
+   "norm(DJDm_old)"     : inf
+   "norm(DJDm)"         : 1364.5437394700352
+   "DJDm[dm]"           : -1364.54373947
+   "D2JDm2[dm]"         : 345891.803137
+   "model param.,  m"   : [ 3.477603e-02  1.059706e-03  4.852972e-03  9.893655e-03  6.094060e-07]
+   "model param.,  dm"  : [ 2.763778e-04  3.449392e-03  2.611186e-04 -1.469082e-03 -1.167033e-03]
+   "direction cosine"   : 1.0
+   "residual est., dm"  : 0.00394500166554
+   "is cost convex"     : True
+   "is cost decreasing" : True
+   "is cost converging" : True
+   "the cost"}                  : 1.6149719549113921
+
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+ 1 / 25
+   "norm(DJDm_old)"     : 1364.5437394700352
+   "norm(DJDm)"         : 578.7985375429121
+   "DJDm[dm]"           : -578.798537543
+   "D2JDm2[dm]"         : 194337.279215
+   "model param.,  m"   : [ 3.505241e-02  4.509098e-03  5.114091e-03  8.424573e-03 -1.166424e-03]
+   "model param.,  dm"  : [ 4.106322e-05  4.845672e-04  1.749723e-03 -1.206048e-03 -2.029240e-03]
+   "direction cosine"   : 1.0
+   "residual est., dm"  : 0.00297831965067
+   "is cost convex"     : True
+   "is cost decreasing" : True
+   "is cost converging" : True  : 1.5574756060440584
+   "the cost"}
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+ 2 / 25
+   "norm(DJDm_ol        : 321.8479420220333
+   "DJDm[dm]"           : -321.847942022
+   "D2JDm2[dm]"         : 11574.6010446
+   "model param.,  m"   : [ 3.509347e-02  4.993665e-03  6.863813e-03  7.218526e-03 -3.195664e-03]
+   "model param.,  dm"  : [ 1.26: 1.5309560908864142 3  1.444325e-04 -1.017471e-03 -1.793857e-02]
+   "direction cosine"   : 1.0
+Solving nonlinear variational problem.585
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+ 3 / 25
+   "norm(DJDm_old)"     : 321.8479420220333
+   "norm(DJDm)"         : 1279.0271015128567
+   "DJDm[dm]"           : -1279.02710151
+   "D2JDm2[dm]"         : 238144.187328
+   "model param.,  m"   : [ 3.636021e-02  9.120014e-03  7.008246e-03  6.201054e-03 -2.113424e-02]
+   "model param.,  dm"  : [ 8.64: 1.2715895042856924 3 -9.568052e-04  4.380329e-03 -1.350923e-03]
+   "direction cosine"   : 1.0
+   "residual est., dm"  : 0.00537080965889
+LOGGER: minimize_cost_forall - WARNING
+  Model cost diverged {num_diverged} time(s).
+   "is cost converging" : False
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+Solving nonlinear variational problem.
+
+LOGGER: compute_dm - WARNING
+  Could not compute `dm` using Newton method; trying gradient descent.
+
+
+
+*** Summary of Iteration
+
+ 4 / 25
+   "norm(DJDm_old)"     : 1279.0271015128567
+   "norm(DJDm)"         : 698.0571517392063
+   "DJDm[dm]"           : -698.057151739
+   "D2JDm2[dm]"         : 28495.7299642
+   "model param.,  m"   : [ 3.722427e-02  6.635814e-03  6.051441e-03  1.058138e-02 -2.248516e-02]
+   "model param.,  dm"  : [ 7.538698e-03  3.074088e-03 -1.170499e-02  1.004912e-02 -1.472035e-02]
+   "direction cosine"   : 1.0
+   "residual est., dm"  : 0.024496903663
+   "is cost convex"     : True
+   "is cost decreasing" : True  : 1.1001613818973253
+   "is cost converging" : True
+Solving nonlinear variational problem.
+  *** Warning: PETSc SNES solver diverged in 100 iterations with divergence reason DIVERGED_MAX_IT.
+Traceback (most recent call last):
+  File "keloid_skin_main.py", line 605, in <module>
+    sensitivity_method='default', approximate_D2JDm2='default')
+  File "/home/fenics/shared/invsolve/invsolve.py", line 743, in minimize_cost_forall
+    DJDm, D2JDm2 = forward_solver()
+  File "/home/fenics/shared/invsolve/invsolve.py", line 906, in forward_solver
+    n, b = self.solve_nonlinear_problem(t)
+  File "/home/fenics/shared/invsolve/invsolve.py", line 418, in solve_nonlinear_problem
+    n, b = self._nonlinear_solver.solve()
+RuntimeError:
+
+*** -------------------------------------------------------------------------
+*** DOLFIN encountered an error. If you are not able to resolve this issue
+*** using the information listed below, you can ask for help at
+***
+***     fenics-support@googlegroups.com
+***
+*** Remember to include the error message listed below and, if possible,
+*** include a *minimal* running example to reproduce the error.
+***
+*** -------------------------------------------------------------------------
+*** Error:   Unable to solve nonlinear system with PETScSNESSolver.
+*** Reason:  Solver did not converge.
+*** Where:   This error was encountered inside PETScSNESSolver.cpp.
+*** Process: 0
+***
+*** DOLFIN version: 2018.1.0
+*** Git changeset:  948dc42cc4e06ed9227d0201ad50f94ac94cbf9f
+*** -------------------------------------------------------------------------
+
+fenics@4baf0f113e06:~/shared$
